@@ -17,6 +17,19 @@
 	background-color: rgba(#000, .1);
 }
 
+
+.fs-chat .fs-userlist {
+	float: right;
+	background-color: rgba(#000, .1);
+
+	h1 {
+		font-size: 12pt;
+	}
+	ul > li {
+		display: block;
+	}
+}
+
 .fs-message-input {
 	position: relative;
 

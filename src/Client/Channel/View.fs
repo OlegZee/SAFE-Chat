@@ -36,8 +36,8 @@ let messageInput dispatch model =
 let chanUsers (users: Map<string, UserInfo>) =
   let screenName (u: UserInfo) =
     match u.IsBot with |true -> sprintf "#%s" u.Nick |_ -> u.Nick
-  div [ ClassName "userlist" ]
-      [ str "Users:"
+  div [ ClassName "fs-userlist" ]
+      [ h1 [] [str "Users"]
         ul []
           [ for u in users ->
               li [] [str <| screenName u.Value]
@@ -86,6 +86,7 @@ let messageList (messages: Message Envelope list) =
 
 let root (model: ChannelData) dispatch =
     [ chatInfo dispatch model
+      chanUsers model.Users
       div [ ClassName "fs-splitter" ] []
       messageList model.Messages
       div [ ClassName "fs-splitter" ] []

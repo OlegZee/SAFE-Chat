@@ -4,6 +4,8 @@ open Suave
 open Suave.Filters
 open Suave.Operators
 open Suave.Logging
+open Akkling
+open Akka.Event
 
 type CmdArgs = { IP: System.Net.IPAddress; Port: Sockets.Port; ClientPath: string }
 
@@ -60,7 +62,7 @@ let main argv =
 
     let config =
         { defaultConfig with
-            logger = Targets.create LogLevel.Debug [|"ServerCode"; "Server" |]
+            logger = Targets.create LogLevel.Warn [|"ServerCode"; "Server" |]
             bindings = [ HttpBinding.create HTTP args.IP args.Port ]
             cookieSerialiser = TweakingSuave.JsonNetCookieSerialiser()
             homeFolder = args.ClientPath |> (Path.GetFullPath >> Some)

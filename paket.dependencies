@@ -25,6 +25,8 @@ nuget Fable.Elmish.Browser
 nuget Fable.Elmish.Debugger
 nuget Fable.Websockets.Elmish
 
+nuget System.Net.WebSockets.Client
+
 clitool Microsoft.DotNet.Watcher.Tools 2.0.0
 clitool dotnet-fable
 

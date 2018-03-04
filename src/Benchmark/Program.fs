@@ -1,34 +1,65 @@
 ﻿// Learn more about F# at http://fsharp.org
 
 open System
+open System.Text
+open System.Net
 open System.Net.WebSockets
 open System.Threading
 open System.Net.Http
 
-let benchmark () = async {
+let baseAddress = new Uri ("http://localhost:8083")
 
-    let baseAddress = new Uri ("http://localhost:8083")
-    let handler = new HttpClientHandler()
-    use c = new HttpClient(handler)
+let sendMessage (socket: ClientWebSocket) (cancel: CancellationToken) (message: string) = async {
+    if socket.State = WebSocketState.Open then
+        let messageBuffer = Encoding.UTF8.GetBytes message
+        // TODO split long message
+        return! socket.SendAsync(new ArraySegment<byte>(messageBuffer), WebSocketMessageType.Text, true, cancel) |> Async.AwaitTask
+    else
+        printfn "sendMessage: Socket is not opened"
+    return ()   
+}
 
-    let content = new System.Net.Http.FormUrlEncodedContent(dict ["nick", "bench"])
-    let! loginResponse = c.PostAsync(new Uri(baseAddress, "logon"), content) |> Async.AwaitTask
+let listenSocket (socket: ClientWebSocket) (cancel: CancellationToken) = async {
+    let buffer = Array.create<byte> 1024 (byte 0)
+    while socket.State = WebSocketState.Open && (not cancel.IsCancellationRequested) do
+        let message = new StringBuilder()
 
-    printfn "login response %A" loginResponse.StatusCode
+        let mutable endOfMessage = false
+        while not endOfMessage do
+            let! result = socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancel) |> Async.AwaitTask
+            match result.MessageType with
+            | WebSocketMessageType.Close ->
+                return ()
+            | _ ->
+                let str = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                message.Append str |> ignore
+            endOfMessage <- result.EndOfMessage
+
+        printfn "received: %s" (message.ToString())
+                
+    return ()
+}
+
+let benchmark (sessionCookies: CookieContainer) = async {
 
     let cts = new CancellationTokenSource()
-    let uri = new Uri("ws://localhost:8083/api/socket", UriKind.Absolute)
 
-    let client = new ClientWebSocket()
-    client.Options.Cookies <- handler.CookieContainer
+    let socketUriBuilder = new UriBuilder(baseAddress)
+    socketUriBuilder.Scheme <- "ws"
+    socketUriBuilder.Path <- "/api/socket"
 
-    let cookies = client.Options.Cookies.GetCookies(baseAddress)
+    let socketUri = socketUriBuilder.Uri
+
+    let socket = new ClientWebSocket()
+    socket.Options.Cookies <- sessionCookies
+
+    let cookies = socket.Options.Cookies.GetCookies(baseAddress)
     for ci in 0..cookies.Count-1 do
         let cookie = cookies.[ci]
         printfn "Cookie[%s] = '%s'" cookie.Name cookie.Value
 
     try
-        do! client.ConnectAsync (uri, cts.Token) |> Async.AwaitTask
+        do! socket.ConnectAsync (socketUri, cts.Token) |> Async.AwaitTask
         printfn "Connected"
     with :? AggregateException as ae ->
         match ae.InnerExceptions.[0] with
@@ -37,14 +68,53 @@ let benchmark () = async {
         | x ->
             printfn "Unknown exception %A" x
 
-    if client.State = WebSocketState.Open then
+    if socket.State = WebSocketState.Open then
+        printfn "Socket opened"
+
+        do listenSocket socket cts.Token |> Async.Start
+        do! sendMessage socket cts.Token "\"Greets\""
+
+        do! Async.Sleep(1000)
+        do cts.Cancel()
+
+    if socket.State = WebSocketState.Open then
+        printfn "Closing..."
+        do! socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cts.Token) |> Async.AwaitTask
+        printfn "Closed"
+
+    return ()
+}
+
+let doClientSession nickName (f: CookieContainer -> unit Async) = async {
+
+    let handler = new HttpClientHandler()
+    use c = new HttpClient(handler)
+
+    let! loginResponse =
+        c.PostAsync (
+            new Uri(baseAddress, "logon"),
+            new FormUrlEncodedContent(dict ["nick", nickName])) |> Async.AwaitTask
+
+    printfn "login response %A" loginResponse.StatusCode
+    let! loginReplyContent = loginResponse.Content.ReadAsStringAsync() |> Async.AwaitTask
+
+    if loginReplyContent.Contains("Register failed") then
+        printf "Register failed, full message: %s" loginReplyContent
+    else
+        try
+            return! f handler.CookieContainer
+        finally
+            let taskResult (task: Tasks.Task<_>) = task.Result
+            let logoffResponse = c.GetAsync (new Uri(baseAddress, "logoff")) |> taskResult
+            printfn "logoff response %A" logoffResponse.StatusCode
         ()
 
-    return 0
+    return ()
 }
 
 [<EntryPoint>]
 let main argv =
     printfn "Benchmark"
 
-    benchmark() |> Async.RunSynchronously
+    doClientSession "bench" benchmark |> Async.RunSynchronously
+    0

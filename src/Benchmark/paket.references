@@ -1,2 +1,5 @@
-System.Net.WebSockets.Client
 FSharp.Core
+System.Net.WebSockets.Client
+
+Newtonsoft.Json
+Fable.JsonConverter

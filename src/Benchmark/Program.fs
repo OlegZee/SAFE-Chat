@@ -7,21 +7,41 @@ open System.Net.WebSockets
 open System.Threading
 open System.Net.Http
 
+open Newtonsoft.Json
+open FsChat
+
 let baseAddress = new Uri ("http://localhost:8083")
 
-let sendMessage (socket: ClientWebSocket) (cancel: CancellationToken) (message: string) = async {
-    if socket.State = WebSocketState.Open then
-        let messageBuffer = Encoding.UTF8.GetBytes message
-        // TODO split long message
-        return! socket.SendAsync(new ArraySegment<byte>(messageBuffer), WebSocketMessageType.Text, true, cancel) |> Async.AwaitTask
-    else
-        printfn "sendMessage: Socket is not opened"
+let private jsonConverter = Fable.JsonConverter() :> JsonConverter
+
+let json message =
+    JsonConvert.SerializeObject (message, [|jsonConverter|])
+
+let unjson<'t> jsonString =
+    try
+        JsonConvert.DeserializeObject<'t> (jsonString, [|jsonConverter|]) |> Ok
+    with e ->
+        Error <| sprintf "Failed to parse message '%s': %A" jsonString e
+        
+
+let sendMessage (socket: ClientWebSocket) (cancel: CancellationToken) (message: Protocol.ServerMsg) = async {
+    try
+        if socket.State = WebSocketState.Open then
+            let messageBuffer = message |> (json >> Encoding.UTF8.GetBytes)
+            // TODO split long message
+            return! socket.SendAsync(new ArraySegment<byte>(messageBuffer), WebSocketMessageType.Text, true, cancel) |> Async.AwaitTask
+        else
+            printfn "sendMessage: Socket is not opened"
+    with e ->
+        printfn "ERROR: Failed to send message, reason: %A" e
+
     return ()   
 }
 
-let listenSocket (socket: ClientWebSocket) (cancel: CancellationToken) = async {
+let listenSocket (socket: ClientWebSocket) (cancel: CancellationToken) limit f = async {
     let buffer = Array.create<byte> 1024 (byte 0)
-    while socket.State = WebSocketState.Open && (not cancel.IsCancellationRequested) do
+    let mutable messagesToStop = limit
+    while socket.State = WebSocketState.Open && (not cancel.IsCancellationRequested) && messagesToStop > 0 do
         let message = new StringBuilder()
 
         let mutable endOfMessage = false
@@ -35,14 +55,14 @@ let listenSocket (socket: ClientWebSocket) (cancel: CancellationToken) = async {
                 message.Append str |> ignore
             endOfMessage <- result.EndOfMessage
 
-        printfn "received: %s" (message.ToString())
+        let message = unjson<Protocol.ClientMsg> <| message.ToString()
+        f message
+        messagesToStop <- messagesToStop - 1
                 
     return ()
 }
 
-let benchmark (sessionCookies: CookieContainer) = async {
-
-    let cts = new CancellationTokenSource()
+let withApiSocket (sessionCookies: CookieContainer) (cancel: CancellationToken) f = async {
 
     let socketUriBuilder = new UriBuilder(baseAddress)
     socketUriBuilder.Scheme <- "ws"
@@ -53,13 +73,8 @@ let benchmark (sessionCookies: CookieContainer) = async {
     let socket = new ClientWebSocket()
     socket.Options.Cookies <- sessionCookies
 
-    let cookies = socket.Options.Cookies.GetCookies(baseAddress)
-    for ci in 0..cookies.Count-1 do
-        let cookie = cookies.[ci]
-        printfn "Cookie[%s] = '%s'" cookie.Name cookie.Value
-
     try
-        do! socket.ConnectAsync (socketUri, cts.Token) |> Async.AwaitTask
+        do! socket.ConnectAsync (socketUri, cancel) |> Async.AwaitTask
         printfn "Connected"
     with :? AggregateException as ae ->
         match ae.InnerExceptions.[0] with
@@ -69,17 +84,12 @@ let benchmark (sessionCookies: CookieContainer) = async {
             printfn "Unknown exception %A" x
 
     if socket.State = WebSocketState.Open then
-        printfn "Socket opened"
-
-        do listenSocket socket cts.Token |> Async.Start
-        do! sendMessage socket cts.Token "\"Greets\""
-
-        do! Async.Sleep(1000)
-        do cts.Cancel()
+        printfn "Running benchmark"
+        do! f socket
 
     if socket.State = WebSocketState.Open then
-        printfn "Closing..."
-        do! socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cts.Token) |> Async.AwaitTask
+        printfn "Closing...(state: %A)" socket.State
+        do! socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cancel) |> Async.AwaitTask
         printfn "Closed"
 
     return ()
@@ -112,9 +122,64 @@ let doClientSession nickName (f: CookieContainer -> unit Async) = async {
     return ()
 }
 
+let createChannels (socket: ClientWebSocket) names = async {
+    let cts = new CancellationTokenSource()
+    let channelList = new System.Collections.Generic.List<Protocol.ChannelInfo>()
+
+    let collectChannelInfoReply = function
+        | Ok(Protocol.ClientMsg.NewChannel info)
+        | Ok(Protocol.ClientMsg.JoinedChannel info)
+            -> channelList.Add info
+        | Ok(Protocol.ClientMsg.UserEvent _)
+            -> ()
+        | m -> printfn "ignored message %A" m
+
+    printfn "Creating channels"
+    do listenSocket socket cts.Token 1000 collectChannelInfoReply |> Async.Start
+
+    for name in names do
+        do! sendMessage socket cts.Token (Protocol.ServerMsg.JoinOrCreate name)
+        do! Async.Sleep(100)
+
+    let mutable itemCount = 0
+    while channelList.Count <> List.length names && itemCount < 10 do
+        printfn "Waiting for all channels to be created"
+        do! Async.Sleep(1000)
+        itemCount <- itemCount + 1
+
+    do cts.Cancel()
+
+    if channelList.Count <> List.length names then
+        printfn "ERROR: Only %i channels were created" channelList.Count
+
+    return channelList |> List.ofSeq
+}
+
 [<EntryPoint>]
 let main argv =
     printfn "Benchmark"
 
-    doClientSession "bench" benchmark |> Async.RunSynchronously
-    0
+    let cts = new CancellationTokenSource()
+
+    let body socket = async {
+        do listenSocket socket cts.Token 1 (printfn "received: %A") |> Async.Start
+        do! sendMessage socket cts.Token Protocol.ServerMsg.Greets
+        do! Async.Sleep(100)
+
+        printfn "Creating channels"
+        let channelNames = [0..10] |> List.map (sprintf "chan-%i")
+        let! channels = createChannels socket channelNames
+
+        printfn "Sending message to all channels"
+        do listenSocket socket cts.Token 1000 (fun _ -> printf "r") |> Async.Start
+        for channel in channels do
+            do! sendMessage socket cts.Token (Protocol.ServerMsg.UserMessage {text = "hello"; chan = channel.id})
+
+        do! Async.Sleep(1000)
+    }
+
+    async {
+        do! doClientSession "bench" (fun cookies -> withApiSocket cookies cts.Token body)
+        cts.Cancel()
+        return 0
+    } |> Async.RunSynchronously

@@ -28,7 +28,7 @@ let handleWebsocketMessages (system: ActorSystem)
     =
     let materializer = system.Materializer()
     let sourceActor, inputSource =
-        Source.actorRef OverflowStrategy.Fail 1000 |> Source.toMat Sink.publisher Keep.both
+        Source.actorRef OverflowStrategy.Fail 10000 |> Source.toMat Sink.publisher Keep.both
         |> Graph.run materializer |> fun (actor, pub) -> actor, Source.FromPublisher pub
 
     let emptyData = ByteSegment [||]

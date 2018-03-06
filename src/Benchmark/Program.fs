@@ -4,6 +4,8 @@ open System
 open System.Text
 open System.Net
 open System.Net.WebSockets
+open System.Collections.Concurrent
+
 open System.Threading
 open System.Net.Http
 
@@ -11,6 +13,8 @@ open Newtonsoft.Json
 open FsChat
 
 let baseAddress = new Uri ("http://localhost:8083")
+let loopCount = 1000
+let channelCount = 40
 
 let private jsonConverter = Fable.JsonConverter() :> JsonConverter
 
@@ -23,6 +27,15 @@ let unjson<'t> jsonString =
     with e ->
         Error <| sprintf "Failed to parse message '%s': %A" jsonString e
         
+let forValid f result = match result with | Ok v -> f v | _ -> ()
+let (><) f a b = f b a
+
+let rec dryQueue f (queue: ConcurrentQueue<_>) =
+    let succ, m = queue.TryDequeue()
+    if not succ then ()
+    else
+        f m
+        dryQueue f queue
 
 let sendMessage (socket: ClientWebSocket) (cancel: CancellationToken) (message: Protocol.ServerMsg) = async {
     try
@@ -38,10 +51,9 @@ let sendMessage (socket: ClientWebSocket) (cancel: CancellationToken) (message: 
     return ()   
 }
 
-let listenSocket (socket: ClientWebSocket) (cancel: CancellationToken) limit f = async {
+let listenSocket (socket: ClientWebSocket) (cancel: CancellationToken) f = async {
     let buffer = Array.create<byte> 1024 (byte 0)
-    let mutable messagesToStop = limit
-    while socket.State = WebSocketState.Open && (not cancel.IsCancellationRequested) && messagesToStop > 0 do
+    while socket.State = WebSocketState.Open && (not cancel.IsCancellationRequested) do
         let message = new StringBuilder()
 
         let mutable endOfMessage = false
@@ -57,7 +69,6 @@ let listenSocket (socket: ClientWebSocket) (cancel: CancellationToken) limit f =
 
         let message = unjson<Protocol.ClientMsg> <| message.ToString()
         f message
-        messagesToStop <- messagesToStop - 1
                 
     return ()
 }
@@ -122,37 +133,39 @@ let doClientSession nickName (f: CookieContainer -> unit Async) = async {
     return ()
 }
 
-let createChannels (socket: ClientWebSocket) names = async {
+let createChannels (socket: ClientWebSocket) names processInput = async {
     let cts = new CancellationTokenSource()
-    let channelList = new System.Collections.Generic.List<Protocol.ChannelInfo>()
+    let mutable channelList = Map.empty
 
     let collectChannelInfoReply = function
-        | Ok(Protocol.ClientMsg.NewChannel info)
-        | Ok(Protocol.ClientMsg.JoinedChannel info)
-            -> channelList.Add info
-        | Ok(Protocol.ClientMsg.UserEvent _)
+        | Protocol.ClientMsg.NewChannel info
+        | Protocol.ClientMsg.JoinedChannel info
+            -> channelList <- channelList |> Map.add info.id info
+        | Protocol.ClientMsg.UserEvent _
             -> ()
         | m -> printfn "ignored message %A" m
 
     printfn "Creating channels"
-    do listenSocket socket cts.Token 1000 collectChannelInfoReply |> Async.Start
 
     for name in names do
         do! sendMessage socket cts.Token (Protocol.ServerMsg.JoinOrCreate name)
-        do! Async.Sleep(100)
+        do! Async.Sleep(10)
+
+    processInput collectChannelInfoReply
+    do! Async.Sleep(100)
 
     let mutable itemCount = 0
-    while channelList.Count <> List.length names && itemCount < 10 do
+    while channelList.Count <> List.length names && itemCount < 5 do
         printfn "Waiting for all channels to be created"
         do! Async.Sleep(1000)
         itemCount <- itemCount + 1
 
     do cts.Cancel()
 
-    if channelList.Count <> List.length names then
+    if channelList.Count < List.length names then
         printfn "ERROR: Only %i channels were created" channelList.Count
-
-    return channelList |> List.ofSeq
+    
+    return channelList |> Map.toArray |> Array.map snd |> List.ofSeq
 }
 
 [<EntryPoint>]
@@ -162,20 +175,32 @@ let main argv =
     let cts = new CancellationTokenSource()
 
     let body socket = async {
-        do listenSocket socket cts.Token 1 (printfn "received: %A") |> Async.Start
+
+        let queue = new ConcurrentQueue<Protocol.ClientMsg>()
+
+        do listenSocket socket cts.Token (forValid queue.Enqueue) |> Async.Start
         do! sendMessage socket cts.Token Protocol.ServerMsg.Greets
         do! Async.Sleep(100)
+        do dryQueue (printfn "%A") queue
 
         printfn "Creating channels"
-        let channelNames = [0..10] |> List.map (sprintf "chan-%i")
-        let! channels = createChannels socket channelNames
+        let channelNames = [1..channelCount] |> List.map (sprintf "chan-%i")
+        let! channels = createChannels socket channelNames (dryQueue >< queue)
 
+        printfn "Socket state %A" socket.State
         printfn "Sending message to all channels"
-        do listenSocket socket cts.Token 1000 (fun _ -> printf "r") |> Async.Start
-        for channel in channels do
-            do! sendMessage socket cts.Token (Protocol.ServerMsg.UserMessage {text = "hello"; chan = channel.id})
+        // do listenSocket socket cts.Token 1000 (fun _ -> printf "r") |> Async.Start
+        let mutable messageCount = 0
+        for _ in [1..loopCount] do
+            for channel in channels do
+                do! sendMessage socket cts.Token (Protocol.ServerMsg.UserMessage {text = "hello"; chan = channel.id})
+                messageCount <- messageCount + 1
+                if messageCount % 1000 = 0 then
+                    printfn "%i messages sent so far" messageCount
+            do queue |> dryQueue ignore
+            do! Async.Sleep(1)
 
-        do! Async.Sleep(1000)
+        do! Async.Sleep(100)
     }
 
     async {

@@ -11,6 +11,7 @@ open System.Net.Http
 
 open Newtonsoft.Json
 open FsChat
+open System.Diagnostics
 
 let baseAddress = new Uri ("http://localhost:8083")
 let loopCount = 1000
@@ -141,9 +142,10 @@ let createChannels (socket: ClientWebSocket) names processInput = async {
         | Protocol.ClientMsg.NewChannel info
         | Protocol.ClientMsg.JoinedChannel info
             -> channelList <- channelList |> Map.add info.id info
-        | Protocol.ClientMsg.UserEvent _
-            -> ()
-        | m -> printfn "ignored message %A" m
+        | Protocol.ClientMsg.UserEvent _ -> ()
+        | _ ->
+            // printfn "ignored message %A" m
+            ()
 
     printfn "Creating channels"
 
@@ -189,22 +191,31 @@ let main argv =
 
         printfn "Socket state %A" socket.State
         printfn "Sending message to all channels"
+
+        let stopwatch = Stopwatch.StartNew()
         // do listenSocket socket cts.Token 1000 (fun _ -> printf "r") |> Async.Start
         let mutable messageCount = 0
+        let mutable rcvd = 0
+
         for _ in [1..loopCount] do
             for channel in channels do
                 do! sendMessage socket cts.Token (Protocol.ServerMsg.UserMessage {text = "hello"; chan = channel.id})
                 messageCount <- messageCount + 1
                 if messageCount % 1000 = 0 then
                     printfn "%i messages sent so far" messageCount
-            do queue |> dryQueue ignore
-            do! Async.Sleep(1)
+
+            while rcvd < messageCount do
+                do queue |> dryQueue (fun _ -> rcvd <- rcvd + 1)
+                do! Async.Sleep(5)
+        stopwatch.Stop()
+
+        printfn "Send %i messages in %A" messageCount stopwatch.Elapsed
 
         do! Async.Sleep(100)
     }
 
     async {
-        do! doClientSession "bench" (fun cookies -> withApiSocket cookies cts.Token body)
+        do! doClientSession "bench1212" (fun cookies -> withApiSocket cookies cts.Token body)
         cts.Cancel()
         return 0
     } |> Async.RunSynchronously

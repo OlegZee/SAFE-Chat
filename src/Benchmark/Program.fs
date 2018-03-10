@@ -8,14 +8,11 @@ open System.Collections.Concurrent
 
 open System.Threading
 open System.Net.Http
-
-open Newtonsoft.Json
-open FsChat
 open System.Diagnostics
 
-let baseAddress = new Uri ("http://localhost:8083")
-let loopCount = 1000
-let channelCount = 40
+open Newtonsoft.Json
+open Argu
+open FsChat
 
 let private jsonConverter = Fable.JsonConverter() :> JsonConverter
 
@@ -37,6 +34,22 @@ let rec dryQueue f (queue: ConcurrentQueue<_>) =
     else
         f m
         dryQueue f queue
+
+let rec takeUntil f (queue: ConcurrentQueue<_>) =
+    let succ, m = queue.TryDequeue()
+    if not succ then None
+    else
+        if f m then (Some m) else takeUntil f queue
+
+let rec fetchUntil maxWait f (queue: ConcurrentQueue<_>) = async {
+    let item = queue |> takeUntil f
+    match item, maxWait with
+    | _, 0 -> return None
+    | (Some _),_ -> return item
+    | None, _ ->
+        do! Async.Sleep 1
+        return! fetchUntil (maxWait - 1) f queue
+}
 
 let sendMessage (socket: ClientWebSocket) (cancel: CancellationToken) (message: Protocol.ServerMsg) = async {
     try
@@ -74,7 +87,7 @@ let listenSocket (socket: ClientWebSocket) (cancel: CancellationToken) f = async
     return ()
 }
 
-let withApiSocket (sessionCookies: CookieContainer) (cancel: CancellationToken) f = async {
+let withApiSocket (baseAddress: Uri) (sessionCookies: CookieContainer) (cancel: CancellationToken) f = async {
 
     let socketUriBuilder = new UriBuilder(baseAddress)
     socketUriBuilder.Scheme <- "ws"
@@ -97,7 +110,7 @@ let withApiSocket (sessionCookies: CookieContainer) (cancel: CancellationToken) 
 
     if socket.State = WebSocketState.Open then
         printfn "Running benchmark"
-        do! f socket
+        do! f socket cancel
 
     if socket.State = WebSocketState.Open then
         printfn "Closing...(state: %A)" socket.State
@@ -107,7 +120,7 @@ let withApiSocket (sessionCookies: CookieContainer) (cancel: CancellationToken) 
     return ()
 }
 
-let doClientSession nickName (f: CookieContainer -> unit Async) = async {
+let doClientSession (baseAddress: Uri) nickName (f: CookieContainer -> unit Async) = async {
 
     let handler = new HttpClientHandler()
     use c = new HttpClient(handler)
@@ -139,28 +152,22 @@ let createChannels (socket: ClientWebSocket) names processInput = async {
     let mutable channelList = Map.empty
 
     let collectChannelInfoReply = function
-        | Protocol.ClientMsg.NewChannel info
-        | Protocol.ClientMsg.JoinedChannel info
+        | Protocol.CmdResponse(_, Protocol.JoinedChannel info)
             -> channelList <- channelList |> Map.add info.id info
-        | Protocol.ClientMsg.UserEvent _ -> ()
-        | _ ->
-            // printfn "ignored message %A" m
-            ()
-
-    printfn "Creating channels"
+        | _ -> () // printfn "ignored message %A" m
 
     for name in names do
-        do! sendMessage socket cts.Token (Protocol.ServerMsg.JoinOrCreate name)
+        do! sendMessage socket cts.Token (Protocol.ServerCommand ("", Protocol.JoinOrCreate name))
         do! Async.Sleep(10)
 
     processInput collectChannelInfoReply
-    do! Async.Sleep(100)
 
-    let mutable itemCount = 0
-    while channelList.Count <> List.length names && itemCount < 5 do
+    let mutable retryIteration = 0
+    while channelList.Count <> List.length names && retryIteration < 5 do
         printfn "Waiting for all channels to be created"
         do! Async.Sleep(1000)
-        itemCount <- itemCount + 1
+        processInput collectChannelInfoReply
+        retryIteration <- retryIteration + 1
 
     do cts.Cancel()
 
@@ -170,43 +177,49 @@ let createChannels (socket: ClientWebSocket) names processInput = async {
     return channelList |> Map.toArray |> Array.map snd |> List.ofSeq
 }
 
-[<EntryPoint>]
-let main argv =
-    printfn "Benchmark"
+let loopCount = 1000
+let channelCount = 40
 
-    let cts = new CancellationTokenSource()
+// Flood benchmark
+let flood channelCount messagePerChannelCount =
+    printfn "Flood benchmark"
 
-    let body socket = async {
+    let body socket cancelToken = async {
 
         let queue = new ConcurrentQueue<Protocol.ClientMsg>()
 
-        do listenSocket socket cts.Token (forValid queue.Enqueue) |> Async.Start
-        do! sendMessage socket cts.Token Protocol.ServerMsg.Greets
+        do listenSocket socket cancelToken (forValid queue.Enqueue) |> Async.Start
+        do! sendMessage socket cancelToken Protocol.ServerMsg.Greets
         do! Async.Sleep(100)
-        do dryQueue (printfn "%A") queue
+        do dryQueue (ignore) queue
 
         printfn "Creating channels"
         let channelNames = [1..channelCount] |> List.map (sprintf "chan-%i")
         let! channels = createChannels socket channelNames (dryQueue >< queue)
 
         printfn "Socket state %A" socket.State
-        printfn "Sending message to all channels"
+        printfn "Sending %i messages to each of %i channels" messagePerChannelCount channelCount
 
         let stopwatch = Stopwatch.StartNew()
-        // do listenSocket socket cts.Token 1000 (fun _ -> printf "r") |> Async.Start
-        let mutable messageCount = 0
-        let mutable rcvd = 0
 
-        for _ in [1..loopCount] do
+        let mutable messageCount = 0
+        for _ in [1..messagePerChannelCount] do
             for channel in channels do
-                do! sendMessage socket cts.Token (Protocol.ServerMsg.UserMessage {text = "hello"; chan = channel.id})
+                do! sendMessage socket cancelToken (Protocol.ServerMsg.UserMessage {text = "hello"; chan = channel.id})
                 messageCount <- messageCount + 1
                 if messageCount % 1000 = 0 then
-                    printfn "%i messages sent so far" messageCount
+                    printfn "%i messages sent" messageCount
 
-            while rcvd < messageCount do
-                do queue |> dryQueue (fun _ -> rcvd <- rcvd + 1)
-                do! Async.Sleep(5)
+            // using ping-pong to make sure all messages are processed
+            let pingId = System.DateTime.Now.ToString()
+            
+            do! sendMessage socket cancelToken (Protocol.ServerMsg.ServerCommand (pingId, Protocol.Ping))
+            let ispong = function | Protocol.CmdResponse (reqid, Protocol.Pong) when reqid = pingId -> true | _ -> false
+
+            let! pong = queue |> fetchUntil 1000 ispong
+            if Option.isNone pong then
+                printfn "ERROR: failed to get pong"
+
         stopwatch.Stop()
 
         printfn "Send %i messages in %A" messageCount stopwatch.Elapsed
@@ -214,8 +227,44 @@ let main argv =
         do! Async.Sleep(100)
     }
 
-    async {
-        do! doClientSession "bench1212" (fun cookies -> withApiSocket cookies cts.Token body)
-        cts.Cancel()
-        return 0
-    } |> Async.RunSynchronously
+    body
+
+type Arguments =
+    | Login of nick: string
+    | ChannelCount of count: int
+    | MessageCount of count: int
+    | Server of host: string
+with
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Login _ -> "The nickname to run benchmark under"
+            | ChannelCount _ -> "Number of channels to create"
+            | MessageCount _ -> "Number of messages to sent to each channel"
+            | Server _ -> "Server address"
+
+let parser = ArgumentParser.Create<Arguments>(programName = "benchmark.exe")
+
+
+[<EntryPoint>]
+let main argv =
+    try
+        let results = parser.ParseCommandLine(inputs = argv, raiseOnUsage = true)
+
+        let baseAddress = results.GetResult(<@ Server @>, defaultValue = "http://localhost:8083")
+        let nick = results.GetResult(<@ Login @>, defaultValue = "bench")
+        let channelCount = results.GetResult(<@ ChannelCount @>, defaultValue = 20)
+        let messageCount = results.GetResult(<@ MessageCount @>, defaultValue = 1000)
+
+        let cts = new CancellationTokenSource()
+        async {
+            printfn "Benchmark"
+            do! doClientSession (new Uri(baseAddress)) nick (fun cookies -> withApiSocket (new Uri(baseAddress)) cookies cts.Token (flood channelCount messageCount))
+            cts.Cancel()
+            return 0
+        } |> Async.RunSynchronously
+    with e ->
+        printfn "%s" e.Message
+        0
+
+    // Async.Parallel

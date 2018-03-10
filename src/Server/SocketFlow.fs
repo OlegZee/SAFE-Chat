@@ -28,7 +28,8 @@ let handleWebsocketMessages (system: ActorSystem)
     =
     let materializer = system.Materializer()
     let sourceActor, inputSource =
-        Source.actorRef OverflowStrategy.Fail 10000 |> Source.toMat Sink.publisher Keep.both
+        // in case client floods the server just drop the messages.
+        Source.actorRef OverflowStrategy.DropTail 100 |> Source.toMat Sink.publisher Keep.both
         |> Graph.run materializer |> fun (actor, pub) -> actor, Source.FromPublisher pub
 
     let emptyData = ByteSegment [||]

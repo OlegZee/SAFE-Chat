@@ -220,7 +220,8 @@ type Session(server, userStore: UserStore, meArg) =
 
     let serverEventsSource: Source<Protocol.ClientMsg, Akka.NotUsed> =
         let notifyNew sub = startSession server meUserId sub; Akka.NotUsed.Instance
-        let source = Source.actorRef OverflowStrategy.Fail 1 |> Source.mapMaterializedValue notifyNew
+        let source = Source.actorRef OverflowStrategy.DropNew 1000 |> Source.mapMaterializedValue notifyNew
+        // FIXME: it's very unlikely that 1000 new channels will be created simultaneously
 
         source |> Source.map (function
             | AddChannel ch -> ch |> (mapChanInfo >> Protocol.ClientMsg.NewChannel)

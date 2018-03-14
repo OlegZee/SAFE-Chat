@@ -195,6 +195,7 @@ let flood channelCount messagePerChannelCount =
                     messageCount <- messageCount + 1
                     if messageCount % 1000 = 0 then
                         printfn "%s: %i messages sent" userid messageCount
+                cancelToken.ThrowIfCancellationRequested()
 
                 // using ping-pong to make sure all messages are processed
                 let pingId = System.DateTime.Now.ToString()
@@ -250,15 +251,21 @@ let main argv =
 
         let cts = new CancellationTokenSource()
 
+        Console.CancelKeyPress.AddHandler <|
+            ConsoleCancelEventHandler (fun _ e ->
+                e.Cancel <- true
+                printfn "Exiting gracefully"
+                cts.Cancel())
+
         let session nickName =
             doClientSession (new Uri(baseAddress)) nickName (fun cookies -> withApiSocket (new Uri(baseAddress)) cookies cts.Token (flood channelCount messageCount))
-        let bench =
+        let threads =
             match sessionCount with
             | n when n > 1 ->
-                [for sessionIdx in [1..n] -> session (sprintf "%s-%i" nick sessionIdx)] |> (Async.Parallel >> Async.Ignore)
-            | _ -> session nick
+                [for sessionIdx in [1..n] -> session (sprintf "%s-%i" nick sessionIdx)]
+            | _ ->[session nick]
 
-        bench |> Async.RunSynchronously |> ignore
+        threads |> (Async.Parallel >> Async.Ignore >> Async.RunSynchronously) |> ignore
 
         cts.Cancel()
 

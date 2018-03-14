@@ -107,7 +107,7 @@ let createChannelFlow<'User, 'Message> (channelActor: IActorRef<_>) (user: 'User
     // This source will only buffer one element and will fail if the client doesn't read
     // messages fast enough.
     let notifyNew sub = channelActor <! NewParticipant (user, sub); Akka.NotUsed.Instance
-    let fout = Source.actorRef OverflowStrategy.Fail 5 |> Source.mapMaterializedValue notifyNew
+    let fout = Source.actorRef OverflowStrategy.DropHead 50 |> Source.mapMaterializedValue notifyNew
 
     Flow.ofSinkAndSource fin fout
 
@@ -138,6 +138,7 @@ let createChannelMuxFlow<'User, 'Message, 'ChanId when 'ChanId: equality>
             |> Source.viaMat (KillSwitches.Single()) Keep.right
             |> Source.via infilter
             |> Source.via chanFlow
+            |> Source.buffer OverflowStrategy.DropHead 100
             |> Source.map (fun message -> chanId, message)
             |> sourceTo consumer
 

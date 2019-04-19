@@ -125,6 +125,23 @@
 	}
 }
 
+ul.fs-userlist {
+	position: absolute;
+	right: 100px;
+	top: 20px;
+	li {
+		display: table-cell;
+	}
+	.fs-reminder-banner {
+		background-color: darkblue;
+		color: wheat;
+		border-radius: 50%;
+		padding: 0 10px 0 10px;
+
+		position: absolute;
+	}
+}
+
 .fs-messages {
 	overflow: auto;
 

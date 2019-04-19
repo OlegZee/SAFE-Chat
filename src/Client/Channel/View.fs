@@ -33,15 +33,32 @@ let messageInput dispatch model =
               OnClick (fun _ -> dispatch PostText) ] [] ]
     ]
 
-let chanUsers (users: Map<string, UserInfo>) =
+let chanUserView user =
+  div
+    [ ClassName "fs-avatar"
+      Title user.Nick
+      Style <|
+        match user.ImageUrl with
+        | None| Some "" -> []
+        | Some url -> [BackgroundImage (sprintf "url(%s)" url) ]
+      ] []
+
+let chanUsers (users: Map<UserId, UserInfo>) =
   let screenName (u: UserInfo) =
     match u.IsBot with |true -> sprintf "#%s" u.Nick |_ -> u.Nick
-  div [ ClassName "userlist" ]
-      [ str "Users:"
-        ul []
-          [ for u in users ->
-              li [] [str <| screenName u.Value]
-          ]]
+  let MaxCount = 1
+  let usersTake, reminder =
+    match users |> Map.count with
+    | n when n <= (MaxCount + 1) -> n, 0
+    | n -> MaxCount , n - MaxCount
+
+  ul [ ClassName "fs-userlist" ]
+    [ for (_,u) in users |> Map.toSeq |> Seq.take usersTake ->
+        li [] [ chanUserView u ]
+      if reminder > 0 then
+        yield li []
+          [ div [ ClassName "fs-reminder-banner"] [str <| sprintf "%i more" reminder ] ]
+    ]
 
 let chatInfo dispatch (model: ChannelData) =
   div
@@ -50,6 +67,7 @@ let chatInfo dispatch (model: ChannelData) =
         [] [ str model.Info.Name ]
       span
         [] [ str model.Info.Topic ]
+      chanUsers model.Users
       button
         [ Id "leaveChannel"
           ClassName "btn"
@@ -73,7 +91,7 @@ let messageList (messages: Message Envelope list) =
                       h5  []
                           [ span [ClassName "user"] [str user.Nick]
                             span [ClassName "time"] [str <| formatTs m.Ts ]] ]
-                  UserAvatar.View.root user.ImageUrl
+                  UserAvatar.View.root user
                 ]
 
           | SystemMessage text ->
@@ -82,7 +100,6 @@ let messageList (messages: Message Envelope list) =
                 [ str text; str " "
                   small [] [str <| formatTs m.Ts] ]
       ]
-
 
 let root (model: ChannelData) dispatch =
     [ chatInfo dispatch model

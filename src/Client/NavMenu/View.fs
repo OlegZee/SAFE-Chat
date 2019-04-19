@@ -35,7 +35,7 @@ let menu (chatData: ChatState) currentPage dispatch =
       let opened, newChanName = chat.NewChanName |> function |Some text -> (true, text) |None -> (false, "")
       [ yield div
           [ ClassName "fs-user" ]
-          [ UserAvatar.View.root me.ImageUrl
+          [ UserAvatar.View.root me
             h3 [Id "usernick"] [str me.Nick]
             span [Id "userstatus"] [ str me.Status]
             button

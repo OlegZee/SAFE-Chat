@@ -28,7 +28,7 @@ TestResult.*
 .vs/
 .ionide/
 .idea/
-.idea/.idea.fschat/riderModule.iml
+.ionide/
 
 CHAT_DATA/
 

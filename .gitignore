@@ -26,6 +26,7 @@ _UpgradeReport*
 TestResult.*
 .xake
 .vs/
+.ionide/
 .idea/
 .idea/.idea.fschat/riderModule.iml
 

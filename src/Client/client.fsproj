@@ -24,9 +24,9 @@
     <Compile Include="ChatServer/Types.fs" />
     <Compile Include="ChatServer/State.fs" />
 
+    <Compile Include="Connection/SocketBound.fs" />
     <Compile Include="Connection/Types.fs" />
     <Compile Include="Connection/State.fs" />
-    <Compile Include="Connection/SocketBound.fs" />
 
     <Compile Include="Overview/View.fs" />
 

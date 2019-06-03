@@ -8,7 +8,7 @@ open Props
 open Router
 open Channel.Types
 open ChatServer.Types
-open Connection.Types
+open SocketBound
 
 let menuItem htmlProp name topic isCurrent =
     button
@@ -27,13 +27,13 @@ let menuItemChannelJoin dispatch =
     fun (ch: ChannelInfo) ->
       menuItem (OnClick <| join ch.Id) ch.Name ch.Topic false
 
-let menu (chatData: Model) currentPage dispatch =
+let menu (chatData: SocketBound.Model<_,_>) currentPage dispatch =
     match chatData with
     | NotConnected ->
       [ div [] [str "not connected"] ]
-    | Connecting _ ->
-      [ div [] [str "connecting"] ]
-    | Connected { serverData = { Me = me; NewChanName = newChanName; Channels = channels; ChannelList = channelList } } ->
+    // | Connecting _ ->
+    //   [ div [] [str "connecting"] ]
+    | Connected (_, { Me = me; NewChanName = newChanName; Channels = channels; ChannelList = channelList }) ->
       let opened, newChanName = newChanName |> function |Some text -> (true, text) |None -> (false, "")
       [ yield div
           [ ClassName "fs-user" ]

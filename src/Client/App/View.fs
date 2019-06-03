@@ -3,8 +3,8 @@ module App.View
 open Fable.Websockets.Elmish
 open App.Types
 open Router
-open Connection.Types
 open Fable.React
+open SocketBound
 open Props
 
 let root model dispatch =
@@ -12,7 +12,7 @@ let root model dispatch =
         match model.currentPage, model.chat with
         | Route.Overview, _ -> [ Overview.View.root ]
 
-        | Channel chan, Connected { serverData = { Channels = channels } } when channels |> Map.containsKey chan ->
+        | Channel chan, Connected (_, { Channels = channels }) when channels |> Map.containsKey chan ->
             let dispatchChannelMessage m = ChatServer.Types.ChannelMsg(chan, m) |> ApplicationMsg |> ChatDataMsg |> dispatch
             Channel.View.root channels.[chan] dispatchChannelMessage
 

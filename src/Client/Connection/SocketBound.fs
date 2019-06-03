@@ -7,51 +7,46 @@ open Fable.Websockets.Protocol
 
 type Model<'ServerMsg,'AppModel> =
     | NotConnected
-    | Connecting
     | Connected of SocketHandle<'ServerMsg> * 'AppModel
 
+type App<'Model,'Msg> = (unit -> 'Model * Cmd<'Msg>) * ('Msg -> 'Model -> 'Model * Cmd<'Msg>)
 
-type App<'Model,'Msg> = {
-    init: unit -> 'Model * Cmd<'Msg>
-    update: 'Msg -> 'Model -> 'Model * Cmd<'Msg>
-}
-
-type ConnectedApp<'Model,'Msg,'ClientMsg,'ServerMsg, 'AppMsg> = {
-    init: 'ClientMsg -> Result<'Model * Cmd<'Msg>, string>
-    update: 'Msg -> 'Model -> 'Model * Cmd<'Msg> * 'ServerMsg option
-    greets: 'ServerMsg
-    convertMessage: 'ClientMsg -> 'AppMsg
-}
-
-let onSockets<'AppModel,'AppMsg,'ClientMsg,'ServerMsg>
-        (app: ConnectedApp<'AppModel,'AppMsg, 'ClientMsg, 'ServerMsg, 'AppMsg>)
+let inline onSockets<'AppModel,'AppMsg,'ClientMsg,'ServerMsg>
+        (ainit: unit -> 'AppModel * Cmd<'AppMsg> * 'ServerMsg option)
+        (aupdate: 'AppMsg -> 'AppModel -> 'AppModel * Cmd<'AppMsg> * 'ServerMsg option)
+        (convertMessage: 'ClientMsg -> 'AppMsg)
         : App<Model<'ServerMsg,'AppModel>, Msg<'ServerMsg, 'ClientMsg, 'AppMsg>> =
     let init () =
         let socketAddr = sprintf "ws://%s/api/socket" document.location.host
         console.debug ("Opening socket", socketAddr)
         NotConnected, Cmd.tryOpenSocket socketAddr
 
-    let rec update (msg: Msg<'ServerMsg, 'ClientMsg, 'AppMsg>) state = 
+    let rec update (msg: Msg<'ServerMsg, 'ClientMsg, 'AppMsg>) state =
+
+        let respond socket: 'Model * Cmd<'Msg> * 'ServerMsg option -> _ =
+            fun (newstate, cmd , serverMsg) ->
+                let serverCmds = serverMsg |> Option.map (Cmd.ofSocketMessage socket) |> Option.toList
+                Connected (socket, newstate), Cmd.batch <| (cmd |> Cmd.map ApplicationMsg) :: serverCmds
 
         match state, msg with
         | NotConnected, WebsocketMsg (socket, Opened) ->
-            Connecting, Cmd.ofSocketMessage socket app.greets
+            respond socket <| ainit ()
 
-        | Connecting, WebsocketMsg (socket, Msg msg) ->
-            match app.init msg with
-            | Ok (serverData, cmd) ->
-                Connected (socket, serverData), cmd |> Cmd.map ApplicationMsg
-            | Result.Error errorMessage ->
-                console.error ("Failed to process message while connecting", errorMessage)
-                state, Cmd.none
+        | Connected (socket, appstate), ApplicationMsg msg ->
+            respond socket <| aupdate msg appstate
 
-        | Connected _, WebsocketMsg (_, Msg msg) ->
-            update (app.convertMessage msg |> ApplicationMsg) state
+        | Connected (socket, appstate), WebsocketMsg (_, Msg msg) ->
+            respond socket <| aupdate (convertMessage msg) appstate
 
         | _, msg ->
             console.error ("Failed to process message", msg)
             state, Cmd.none
-    {
-        init = init
-        update = update
-    }
+    init, update
+
+// let ainit, aupdate =
+//     onSockets
+//         (fun () ->
+//             let model, cmd = ChatServer.State.init0 ()
+//             model, cmd, Some FsChat.Protocol.ServerMsg.Greets )
+//         ChatServer.State.update
+//         ChatServer.Types.ServerMessage

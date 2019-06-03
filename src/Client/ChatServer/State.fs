@@ -55,6 +55,9 @@ module private Implementation =
 
 open Implementation
 
+let init0 () =
+    { ChannelList = Map.empty; Me = Channel.Types.UserInfo.Anon; Channels = Map.empty; NewChanName = None }, Cmd.none
+
 let init (hello: Protocol.HelloInfo) =
 
     let me = Conversions.mapUserInfo ((=) hello.me.id) hello.me

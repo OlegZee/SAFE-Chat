@@ -1,10 +1,12 @@
 module Channel.View
 
 open Fable.Core.JsInterop
-open Fable.Helpers.React
+open Fable.React
 
 open Props
 open Types
+
+open Fable.ReactMarkdownImport
 
 let private formatTs (ts: System.DateTime) =
   match (System.DateTime.Now - ts) with
@@ -43,7 +45,7 @@ let chanUsers (users: Map<string, UserInfo>) =
               li [] [str <| screenName u.Value]
           ]]
 
-let chatInfo dispatch (model: ChannelData) =
+let chatInfo dispatch (model: Model) =
   div
     [ ClassName "fs-chat-info" ]
     [ h1
@@ -58,19 +60,22 @@ let chatInfo dispatch (model: ChannelData) =
         [ i [ ClassName "mdi mdi-door-closed mdi-18px" ] []]
     ]
 
+let message (text: string) =
+    [ reactMarkdown [Source text ]]
+
 let messageList (messages: Message Envelope list) =
     div
       [ ClassName "fs-messages" ]
       [ for m in messages ->
           match m.Content with
           | UserMessage (text, user) ->
-              // Fable.Import.Browser.console.warn <| sprintf "%A %A" text user
+              // Browser.Dom.console.warn (sprintf "%A %A" text user)
               div
                 [ classList ["fs-message", true; "user", user.isMe ] ]
                 [ div
                     []
-                    [ p [] [ str text ]
-                      h5  []
+                    [ yield! message text
+                      yield h5  []
                           [ span [ClassName "user"] [str user.Nick]
                             span [ClassName "time"] [str <| formatTs m.Ts ]] ]
                   UserAvatar.View.root user.ImageUrl
@@ -84,11 +89,11 @@ let messageList (messages: Message Envelope list) =
       ]
 
 
-let root (model: ChannelData) dispatch =
+let root (model: Model) dispatch =
     [ chatInfo dispatch model
       chanUsers model.Users
       div [ ClassName "fs-splitter" ] []
       messageList model.Messages
       div [ ClassName "fs-splitter" ] []
       messageInput dispatch model
-     ]
+    ]

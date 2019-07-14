@@ -1,23 +1,25 @@
+[![Build Status](https://travis-ci.org/AndrewEgorov/SAFE-Chat.svg?branch=dev)](https://travis-ci.org/AndrewEgorov/SAFE-Chat)
+
 # F#chat
 
 Sample chat application built with netcore, F#, Akka.net and Fable.
 
-![Harvest chat](docs/harvest-chat.png "Channel view")
+![Harvest chat](docs/FsChat-login.gif "Channel view")
 
 ## Requirements
 
 * [dotnet SDK](https://www.microsoft.com/net/download/core) 2.0.0 or higher
+* [.NET Framework 4.6.1 Developer Pack](https://www.microsoft.com/en-us/download/details.aspx?id=49978) to run e2e tests
 * [node.js](https://nodejs.org) 4.8.2 or higher
 * yarn (`npm i yarn -g`)
 * npm5: JS package manager
 
 ## Building and running the app
 
+* **change current folder to `src/Client` folder**: `cd src/Client`
 * Install JS dependencies: `yarn`
-* **Move to `src/Client` folder**: `cd src\Client`
-* Install F# dependencies: `dotnet restore`
-* Build client bundle: `dotnet fable webpack -p`
-* **Move to `src/Server` folder**: `cd ..\Server`
+* Build client bundle: `yarn build`
+* **chdir to `src/Server` folder**: `cd ..\Server`
 * Install F# dependencies: `dotnet restore`
 * Run the server: `dotnet run`
 * Head your browser to `http://localhost:8083/`
@@ -25,16 +27,20 @@ Sample chat application built with netcore, F#, Akka.net and Fable.
 ## Developing the app
 
 * Start the server (see instruction above)
-* **Move to `src/Client` folder**: `cd src\Client`
-* Start Fable daemon and [Webpack](https://webpack.js.org/) dev server: `dotnet fable webpack-dev-server`
+* Navigate to `src/Client` folder
+* Start Fable daemon and [Webpack](https://webpack.js.org/) dev server: `yarn start`
 * In your browser, open: http://localhost:8080/
 * Enjoy HMR (hotload module reload) experience
 
 ## Running integration (e2e) tests
 
-* Start the server
+E2e tests are based on canopy and webdriver so currently I know it runs on Windows. I have no idea how to run in non-windows environment.
+
+* Follow the instructions above to start the server
 * **Move to `test/e2e` folder**: `cd test\e2e`
 * run the tests: `dotnet run`
+
+It used to work with Expecto plugin but it's no longer included in Ionide.
 
 ## Implementation overview
 
@@ -46,9 +52,11 @@ In order to support the google/fb authentication scenario, fill in the client/se
 
 ### Akka streams
 
-FsChat backend is based on Akka.Streams. The entry point is a `ChannelFlow` module which implements the channel actor, the flow for user participating in particular channel, and the flow for all channels the user is participating in.
+FsChat backend is based on Akka.Streams. The entry point is a `GroupChatFlow` module which implements the actor, serving group chat.
 
-`UserSessionFlow` brings everything together and implements the flow for the user browser session.
+`UserSessionFlow` defines the flows for user and control messages, brings everything together and exposes flow for user session.
+
+`AboutFlow` is an example of implementing channel with specific purpose, other than chatting
 
 `ChatServer` is an actor which purpose is to keep the channel list. It's responsible for creating/dropping the channels.
 
@@ -58,11 +66,11 @@ FsChat backend is based on Akka.Streams. The entry point is a `ChannelFlow` modu
 
 ### Akkling
 
-Akkling is a great tool for F# developers. It does not support netcore yet so I hacked it in my own clone and I store hacked packages in the chat repository.
+Akkling is an unofficial Akka.NET API for F#. It's not just wrapper around Akka.NET API, but introduces some cool concepts such as Effects, typed actors and many more.
 
 ### Fable, Elmish
 
-Client is written on F# with the help of Fable and Elmish (library?, framework?). Fable is great, Elmish is great.
+Client is written on F# with the help of Fable and Elmish (library?, framework?). Fable is absolutely mature technology, Elmish is just great.
 
 ### Communication protocol
 

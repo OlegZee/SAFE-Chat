@@ -10,7 +10,7 @@ open Akka.Streams.Dsl
 open Suave.Logging
 
 open ChatUser
-open ChannelFlow
+open ChatTypes
 open UserStore
 open ChatServer
 
@@ -22,13 +22,32 @@ type ChannelList = ChannelList of Map<ChannelId, UniqueKillSwitch>
 let private logger = Log.create "usersession"
 
 module private Implementation =
-    let byChanId cid c = (c:ChannelData).id = cid
+    let byChanId cid c = (c:ChannelData).cid = cid
+
+    // Creates a Flow instance for user in channel.
+    // When materialized flow connects user to channel and starts bidirectional communication.
+    let createChannelFlow (channelActor: IActorRef<ChannelMessage>) user =
+        let chatInSink = Sink.toActorRef (ChannelCommand (ParticipantLeft user)) channelActor
+
+        let fin =
+            (Flow.empty<_, Akka.NotUsed>
+                |> Flow.map (fun msg -> PostMessage(user, msg) |> ChannelCommand)
+            ).To(chatInSink)
+
+        // The counter-part which is a source that will create a target ActorRef per
+        // materialization where the chatActor will send its messages to.
+        // This source will only buffer one element and will fail if the client doesn't read
+        // messages fast enough.
+        let notifyNew sub = channelActor <! ChannelCommand (NewParticipant (user, sub)); Akka.NotUsed.Instance
+        let fout = Source.actorRef OverflowStrategy.DropHead 100 |> Source.mapMaterializedValue notifyNew
+
+        Flow.ofSinkAndSource fin fout
 
     let join serverChannelResult listenChannel (ChannelList channels) meUserId =
         match serverChannelResult, listenChannel with
-        | Ok chan, Some listen ->
-            let ks = listen chan.id (createChannelFlow chan.channelActor meUserId)
-            Ok (channels |> Map.add chan.id ks |> ChannelList, chan)
+        | Ok (chan: ChannelData), Some listen ->
+            let ks = listen chan.cid (createChannelFlow chan.channelActor meUserId)
+            Ok (channels |> Map.add chan.cid ks |> ChannelList, chan)
         | Result.Error err, _ ->
             Result.Error ("getChannel failed: " + err)
         | _, None ->
@@ -47,7 +66,7 @@ module private Implementation =
         Ok (ChannelList Map.empty, ())
 
     let replyErrorProtocol requestId errtext =
-        Protocol.CannotProcess (requestId, errtext) |> Protocol.ClientMsg.Error
+        Protocol.ClientMsg.CmdResponse (requestId, Protocol.CannotProcess errtext |> Protocol.Error)
 
     let reply requestId = function
         | Ok response ->    response
@@ -59,38 +78,30 @@ module private Implementation =
         else
             None
 
-    let isMember (ChannelList channels) channelId = channels |> Map.containsKey channelId
-
 open Implementation
-type Session(server, userStore: UserStore, meArg) =
+open AsyncUtil
 
-    let (RegisteredUser (meUserId, meUserInit)) = meArg
-    let mutable meUser = meUserInit
+type Session(server, userStore: UserStore, userArg: RegisteredUser) =
+
+    let (RegisteredUser (meUserId, _)) = userArg
+    let mutable (RegisteredUser (_, meUser)) = userArg
 
     // session data
     let mutable channels = ChannelList Map.empty
     let mutable listenChannel = None
 
-    let getMe () = RegisteredUser (meUserId, meUser)
+    let hasJoined channelId =
+        let (ChannelList channelsMap) = channels
+        channelsMap |> Map.containsKey channelId
 
     let updateChannels requestId f = function
         | Ok (newChannels, response) -> channels <- newChannels; f response
         | Result.Error e ->            replyErrorProtocol requestId e
 
-    let makeChannelInfoResult v = async {
-        match v with
-        | Ok (arg1, channel: ChannelData) ->
-            let! (userIds: UserId list) = channel.channelActor <? ListUsers
-            let! users = userStore.GetUsers userIds
-            let chaninfo = { mapChanInfo channel with users = users |> List.map mapUserToProtocol}
-            return Ok (arg1, chaninfo)
-        | Result.Error e -> return Result.Error e
-    }
-
     let notifyChannels message = async {
         do logger.debug (Message.eventX "notifyChannels")
         let (ChannelList channelList) = channels
-        let! serverChannels = server |> (listChannels (fun {id = chid} -> Map.containsKey chid channelList))
+        let! serverChannels = server |> (listChannels (fun {cid = chid} -> Map.containsKey chid channelList))
         match serverChannels with
         | Ok list ->
             do logger.debug (Message.eventX "notifyChannels: {list}" >> Message.setFieldValue "list" list)
@@ -101,111 +112,116 @@ type Session(server, userStore: UserStore, meArg) =
         return ()
     }
 
-    let updateStatus status = function
-        | Anonymous person -> Anonymous {person with status = status}
-        | Person person -> Person {person with status = status}
-        | Bot bot -> Bot {bot with status = status}
-        | other -> other
-
-    let updateNick nick = function
-        | Anonymous person -> Anonymous {person with nick = nick}
-        | Person person -> Person {person with nick = nick}
-        | Bot bot -> Bot {bot with nick = nick}
-        | other -> other
-
-    let updateAvatar ava =
-        let imageUrl = if System.String.IsNullOrWhiteSpace ava then None else Some ava
-        in
-        function
-        | Anonymous person -> Anonymous {person with imageUrl = imageUrl}
-        | Person person -> Person {person with imageUrl = imageUrl}
-        | Bot bot -> Bot {bot with imageUrl = imageUrl}
-        | other -> other
-
     let updateUser requestId fn = function
-        | s when System.String.IsNullOrWhiteSpace s ->
+        | str when System.String.IsNullOrWhiteSpace str ->
             async.Return <| replyErrorProtocol requestId "Invalid (blank) value is not allowed"
-        | newNick -> async {
-            let meNew = meUser |> fn newNick
-            let! updateResult = userStore.Update (RegisteredUser (meUserId, meNew))
+        | newValue -> async {
+            let meNew = meUser |> fn newValue
+            let! updateResult = userStore.Update (meUserId, meNew) // TODO add user id as separate field
             match updateResult with
-            | Ok (RegisteredUser(_, updatedUser)) ->
+            | Ok (RegisteredUser (_, updatedUser)) ->
                 meUser <- updatedUser
-                do! notifyChannels (ParticipantUpdate meUserId)
-                return Protocol.ClientMsg.UserUpdated (mapUserToProtocol <| getMe())
+                do! notifyChannels (ChannelCommand (ParticipantUpdate meUserId))
+                return Protocol.CmdResponse (requestId, Protocol.UserUpdated (mapUserToProtocol <| RegisteredUser (meUserId, meUser)))
             | Result.Error e ->
                 return replyErrorProtocol requestId e
         }
 
-    let rec processControlMessage message =
-        async {
-            let requestId = "" // TODO take from server message
-            let replyJoinedChannel chaninfo =
-                chaninfo |> updateChannels requestId (fun ch -> Protocol.ClientMsg.JoinedChannel {ch with joined = true})
-            match message with
+    let rec processControlCommand requestId command = async {
+        let replyJoinedChannel requestId chaninfo =
+            chaninfo |> updateChannels requestId (fun ch -> Protocol.CmdResponse (requestId, Protocol.CommandResponse.JoinedChannel ch))
+        match command with
+        | Protocol.Join (IsChannelId channelId) when hasJoined channelId ->
+            return replyErrorProtocol requestId "User already joined channel"
 
-            | Protocol.ServerMsg.Greets ->
-                let makeChanInfo chanData =
-                    { mapChanInfo chanData with joined = isMember channels chanData.id}
+        | Protocol.Join (IsChannelId channelId) ->
+            let! serverChannel = getChannel (byChanId channelId) server
+            let result = join serverChannel listenChannel channels meUserId
+            let chaninfo = result |> Result.map(fun (l,chan) -> l, mapChanInfo chan)
+            return replyJoinedChannel requestId chaninfo
 
-                let makeHello channels =
-                    Protocol.ClientMsg.Hello {me = mapUserToProtocol <| getMe(); channels = channels |> List.map makeChanInfo}
+        | Protocol.Join _ ->
+            return replyErrorProtocol requestId "bad channel id"
 
-                let! serverChannels = server |> (listChannels (fun _ -> true))
-                return serverChannels |> (Result.map makeHello >> reply "")
-
-            | Protocol.ServerMsg.Join (IsChannelId channelId) when isMember channels channelId ->
+        | Protocol.JoinOrCreate channelName ->
+            // user channels are all created with autoRemove, system channels are not
+            let! channelResult = server |> getOrCreateChannel channelName "" (GroupChatChannel { autoRemove = true })
+            match channelResult with
+            | Ok channelId when hasJoined channelId ->
                 return replyErrorProtocol requestId "User already joined channel"
 
-            | Protocol.ServerMsg.Join (IsChannelId channelId) ->
+            | Ok channelId ->
                 let! serverChannel = getChannel (byChanId channelId) server
                 let result = join serverChannel listenChannel channels meUserId
-                let! chaninfo = makeChannelInfoResult result
-                return replyJoinedChannel chaninfo
+                let chaninfo = result |> Result.map(fun (l,chan) -> l, mapChanInfo chan)
 
-            | Protocol.ServerMsg.Join _ ->
-                return replyErrorProtocol requestId "bad channel id"
+                do userStore.UpdateUserJoinedChannel (meUserId, channelId)
+                return replyJoinedChannel requestId chaninfo
+            | Result.Error err ->
+                return replyErrorProtocol requestId err
 
-            | Protocol.ServerMsg.JoinOrCreate channelName ->
-                let! channelResult = server |> getOrCreateChannel channelName
-                match channelResult with
-                | Ok channelData when isMember channels channelData.id ->
-                    return replyErrorProtocol requestId "User already joined channel"
-
-                | Ok channelData ->
-                    let! serverChannel = getChannel (byChanId channelData.id) server
-                    let result = join serverChannel listenChannel channels meUserId
-                    let! chaninfo = makeChannelInfoResult result
-                    return replyJoinedChannel chaninfo
-                | Result.Error err ->
-                    return replyErrorProtocol requestId err
-
-            | Protocol.ServerMsg.Leave chanIdStr ->
-                return chanIdStr |> function
-                    | IsChannelId channelId ->
-                        let result = leave channels channelId
-                        result |> updateChannels requestId (fun _ -> Protocol.LeftChannel chanIdStr)
-                    | _ ->
-                        replyErrorProtocol requestId "bad channel id"
-
-            | Protocol.ServerMsg.ControlCommand {text = text; chan = chanIdStr } ->
-                match text with
-                | CommandPrefix "/leave" _ ->
-                    return! processControlMessage (Protocol.ServerMsg.Leave chanIdStr)
-                | CommandPrefix "/join" chanName ->
-                    return! processControlMessage (Protocol.ServerMsg.JoinOrCreate chanName)
-                | CommandPrefix "/nick" newNick ->
-                    return! updateUser requestId updateNick newNick
-                | CommandPrefix "/status" newStatus ->
-                    return! updateUser requestId updateStatus newStatus
-                | CommandPrefix "/avatar" newAvatarUrl ->
-                    return! updateUser requestId updateAvatar newAvatarUrl
+        | Protocol.Leave chanIdStr ->
+            return chanIdStr |> function
+                | IsChannelId channelId ->
+                    let result = leave channels channelId
+                    do userStore.UpdateUserLeftChannel (meUserId, channelId)
+                    result |> updateChannels requestId (fun _ -> Protocol.CmdResponse (requestId, Protocol.LeftChannel chanIdStr))
                 | _ ->
-                    return replyErrorProtocol requestId "command was not processed"
+                    replyErrorProtocol requestId "bad channel id"
+        | Protocol.Ping ->
+            return Protocol.CmdResponse (requestId, Protocol.Pong)
 
+        | Protocol.UserCommand {command = text; chan = chanIdStr } ->
+            let optionOfStr s =
+                if System.String.IsNullOrWhiteSpace s then None else Some s
+
+            match text with
+            | CommandPrefix "/leave" _ ->
+                return! processControlCommand requestId (Protocol.Leave chanIdStr)
+            | CommandPrefix "/join" chanName ->
+                return! processControlCommand requestId (Protocol.JoinOrCreate chanName)
+            | CommandPrefix "/nick" newNick ->
+                let update nick u = {u with nick = nick }
+                return! updateUser requestId update newNick
+            | CommandPrefix "/status" newStatus ->
+                let update status u = {u with UserInfo.status = optionOfStr status }
+                return! updateUser requestId update newStatus
+            | CommandPrefix "/avatar" newAvatarUrl ->
+                let update ava u = {u with imageUrl = optionOfStr ava }: UserInfo
+                return! updateUser requestId update newAvatarUrl
             | _ ->
-                return replyErrorProtocol requestId "event was not processed"
-        }
+                return replyErrorProtocol requestId "command was not processed"
+    }
+
+    let processControlMessage = function
+        | Protocol.ServerMsg.Greets ->
+            let createChannelFlows =
+                let createFlow listen { cid = chanid; channelActor = actor } =
+                    chanid, listen chanid (createChannelFlow actor meUserId)
+                function
+                | Some listen -> List.map(createFlow listen) >> Map.ofList >> ChannelList
+                | _ -> fun _  -> ChannelList Map.empty
+
+            listChannels (fun _ -> true) server
+            |> AsyncResult.bind (fun channelsData ->
+                async {
+                    let channelList = channelsData |> List.map mapChanInfo
+                    let joinedChannels = channelsData |> List.filter(fun c -> meUser.channelList |> List.contains c.cid)
+                    // restore connected channels
+                    channels <- joinedChannels |> createChannelFlows listenChannel
+
+                    return Protocol.ClientMsg.Hello {
+                            me = mapUserToProtocol <| RegisteredUser(meUserId, meUser)
+                            channels = channelList }
+                        |> Result.Ok
+                })
+            |> Async.map (reply "")
+
+        | Protocol.ServerMsg.ServerCommand (requestId, command) ->
+            processControlCommand requestId command
+
+        | _ ->
+            async.Return <| replyErrorProtocol "-" "event was not processed"
 
     let controlMessageFlow = Flow.empty<_, Akka.NotUsed> |> Flow.asyncMap 1 processControlMessage
 
@@ -213,9 +229,11 @@ type Session(server, userStore: UserStore, meArg) =
         let notifyNew sub = startSession server meUserId sub; Akka.NotUsed.Instance
         let source = Source.actorRef OverflowStrategy.Fail 1 |> Source.mapMaterializedValue notifyNew
 
-        source |> Source.map (function
-            | AddChannel ch -> ch |> (mapChanInfo >> Protocol.ClientMsg.NewChannel)
-            | DropChannel ch -> ch |> (mapChanInfo >> Protocol.ClientMsg.RemoveChannel)
+        source |> Source.map (
+            let m x = Protocol.ServerEvent { id = 0; ts = DateTime.Now; evt = x}
+            function
+            | AddChannel ch -> ch |> (mapChanInfo >> Protocol.NewChannel >> m)
+            | DropChannel ch -> ch |> (mapChanInfo >> Protocol.RemoveChannel >> m)
         )
 
     let controlFlow =

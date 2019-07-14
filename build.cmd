@@ -1,8 +1,5 @@
-call yarn
-
 cd src\Client
-dotnet restore
-dotnet fable webpack -- -p
+call yarn build
 
 cd ..\Server
 dotnet build

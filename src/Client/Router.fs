@@ -1,16 +1,16 @@
 module Router
 
-open Elmish.Browser.UrlParser
+open Elmish.UrlParser
 
 type Route =
-    | About
+    | Overview
     | Channel of string
 
 let route : Parser<Route->Route,Route> =
     oneOf [
-        map About (s "about")
+        map Overview (s "overview")
         map Channel (s "channel" </> str) ]
 
 let toHash = function
-    | About -> "#about"
+    | Overview -> "#overview"
     | Channel str -> "#channel/" + str

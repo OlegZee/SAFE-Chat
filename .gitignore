@@ -27,7 +27,7 @@ TestResult.*
 .xake
 .vs/
 .idea/
-.idea/.idea.fschat/riderModule.iml
+.ionide/
 
 CHAT_DATA/
 
@@ -40,4 +40,4 @@ packages/
 # Node
 node_modules/
 project.lock.json
-
+paket.local

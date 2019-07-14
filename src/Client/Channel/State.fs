@@ -1,13 +1,13 @@
 module Channel.State
+
 open Elmish
-
 open Types
-open Fable.Import
+open Browser.Dom
 
-let init () : ChannelData * Cmd<Msg> =
+let init () : Model * Cmd<Msg> =
     {Users = Map.empty; Messages = []; PostText = ""; Info = ChannelInfo.Empty}, Cmd.none
 
-let init2 (chan: ChannelInfo, users: UserInfo list) : ChannelData * Cmd<Msg> =
+let init2 (chan: ChannelInfo, users: UserInfo list) : Model * Cmd<Msg> =
     { (fst <| init()) with Info = chan; Users = users |> List.map (fun u -> u.Id, u) |> Map.ofList }, Cmd.none
 
 let getUserNick userid users =
@@ -17,24 +17,32 @@ let unknownUser userId () = {
     Id = userId; Nick = "Unknown #" + userId; Status = ""
     IsBot = false; Online = true; ImageUrl = None; isMe = false}
 
-let update (msg: Msg) state: (ChannelData * Msg Cmd) =
+let mapUser users userId =
+    users
+    |> Map.tryFind userId
+    |> Option.defaultWith (unknownUser userId)
+
+let mapMessage { Id = id; Ts = ts; Content = text} author =
+    { Id = id; Ts = ts; Content = UserMessage (text, author) }
+
+let update (msg: Msg) state: (Model * Msg Cmd) =
 
     match msg with
-    | Init (info, userlist) ->
-        { Info = info; Messages = []; PostText = ""
-          Users = userlist |> List.map (fun u -> u.Id, u) |> Map.ofList}, Cmd.none
+    | Init (info, userlist, messagelist) ->
+        let users = userlist |> List.map (fun u -> u.Id, u) |> Map.ofList
+        let messages = messagelist |> List.map (fun (u, msg) -> mapMessage msg (mapUser users u))
+        in
+        { Info = info; Messages = messages; PostText = ""; Users = users }, Cmd.none
     | Update info ->
         { state with Info = info }, Cmd.none
 
     | AppendMessage message ->
         { state with Messages = state.Messages @ [message] }, Cmd.none
 
-    | AppendUserMessage (userId, { Id = id; Ts = ts; Content = text}) ->
-        let authorInfo =
-            state.Users
-            |> Map.tryFind userId
-            |> Option.defaultWith (unknownUser userId)
-        let message = { Id = id; Ts = ts; Content = UserMessage (text, authorInfo) }
+    | AppendUserMessage (userId, message) ->
+        let author = mapUser state.Users userId
+        let message = mapMessage message author
+        in
         { state with Messages = state.Messages @ [message] }, Cmd.none
 
     | UserJoined user ->
@@ -81,5 +89,5 @@ let update (msg: Msg) state: (ChannelData * Msg Cmd) =
 
     | Leave
     | Forward _ ->
-        Browser.console.error <| sprintf "%A message is not expected in channel update." msg
+        console.error (sprintf "%A message is not expected in channel update." msg)
         state, Cmd.none

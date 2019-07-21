@@ -65,6 +65,7 @@ do xakeScript {
 
         // build the application
         "build" <== [serverDll]
+        "build:client" <== [clientBundle]
 
         // start server and browser in parallel
         "start" <== [ "start:server"; "start:browser" ]

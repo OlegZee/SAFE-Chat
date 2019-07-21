@@ -1,13 +1,11 @@
 group Server
-
 Akkling
 Akkling.Streams
 Akkling.Persistence
 Akka.Persistence.Sqlite
-Suave
-Suave.OAuth
-Suave.Experimental
+Giraffe
 Newtonsoft.Json
+Microsoft.AspNetCore.App
 Microsoft.Extensions.Configuration
 Microsoft.Extensions.Configuration.Json
 Thoth.Json.Net

@@ -43,10 +43,10 @@ let createEchoActor (getUser: GetUser) (system: ActorSystem) (botUserId: UserId)
     in
     spawn system "echobot" <| props(handler)
 
-let createDiagChannel (getUser: GetUser) (system: ActorSystem) (server: IActorRef<_>) (echoUserId, channelName, topic) =
+let createDiagChannel (getUser: GetUser) (logger) (system: ActorSystem) (server: IActorRef<_>) (echoUserId, channelName, topic) =
     async {
         let bot = createEchoActor getUser system echoUserId
-        let chanActorProps = GroupChatChannelActor.props None
+        let chanActorProps = GroupChatChannelActor.props logger None
 
         let! result = server |> getOrCreateChannel channelName topic (OtherChannel chanActorProps)
         match result with

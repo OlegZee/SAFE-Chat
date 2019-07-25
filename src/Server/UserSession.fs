@@ -1,13 +1,12 @@
 module UserSession
 
 open System
+open Microsoft.Extensions.Logging
 
 open Akkling
 open Akkling.Streams
 open Akka.Streams
 open Akka.Streams.Dsl
-
-open Suave.Logging
 
 open ChatUser
 open ChatTypes
@@ -18,8 +17,6 @@ open FsChat
 open ProtocolConv
 
 type ChannelList = ChannelList of Map<ChannelId, UniqueKillSwitch>
-
-let private logger = Log.create "usersession"
 
 module private Implementation =
     let byChanId cid c = (c:ChannelData).cid = cid
@@ -81,7 +78,7 @@ module private Implementation =
 open Implementation
 open AsyncUtil
 
-type Session(server, userStore: UserStore, userArg: RegisteredUser) =
+type Session(server, logger: ILogger, userStore: UserStore, userArg: RegisteredUser) =
 
     let (RegisteredUser (meUserId, _)) = userArg
     let mutable (RegisteredUser (_, meUser)) = userArg
@@ -99,15 +96,15 @@ type Session(server, userStore: UserStore, userArg: RegisteredUser) =
         | Result.Error e ->            replyErrorProtocol requestId e
 
     let notifyChannels message = async {
-        do logger.debug (Message.eventX "notifyChannels")
+        do logger.LogDebug ("notifyChannels")
         let (ChannelList channelList) = channels
         let! serverChannels = server |> (listChannels (fun {cid = chid} -> Map.containsKey chid channelList))
         match serverChannels with
         | Ok list ->
-            do logger.debug (Message.eventX "notifyChannels: {list}" >> Message.setFieldValue "list" list)
+            do logger.LogDebug ("notifyChannels: {0}", list)
             list |> List.iter(fun chan -> chan.channelActor <! message)
         | _ ->
-            do logger.error (Message.eventX "notifyChannel: Failed to get channel list")
+            do logger.LogError ("notifyChannel: Failed to get channel list")
             ()
         return ()
     }

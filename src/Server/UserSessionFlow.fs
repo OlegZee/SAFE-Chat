@@ -1,12 +1,11 @@
 module UserSessionFlow
 
 open System
+open Microsoft.Extensions.Logging
+
 open Akkling.Streams
 open Akka.Streams
 open Akka.Streams.Dsl
-
-open Suave
-open Suave.Logging
 
 open ChatUser
 open ChatTypes
@@ -24,10 +23,8 @@ module private Implementation =
         | ControlMessage of Protocol.ServerMsg
         | Trash of reason: string
 
-    let logger = Log.create "chatapi"
-
     // extracts message from websocket reply, only handles User input (channel * string)
-    let extractMessage message =
+    let extractMessage (logger: ILogger) message =
         try
             match message with
             | Text t ->
@@ -39,11 +36,11 @@ module private Implementation =
                 | message -> ControlMessage message                
             | x -> Trash <| sprintf "Not a Text message '%A'" x
         with e ->
-            do logger.error (Message.eventX "Failed to parse message '{msg}'. Reason: {e}" >> Message.setFieldValue "msg" message  >> Message.setFieldValue "e" e)
+            do logger.LogError ("Failed to parse message '{0}'. Reason: {1}", message, e)
             Trash "exception"
 
     let partitionFlows (pfn: _ -> int) worker1 worker2 combine =
-        Akkling.Streams.Graph.create2 combine (fun b (w1: FlowShape<_,_>) (w2: FlowShape<_,_>) ->
+        Graph.create2 combine (fun b (w1: FlowShape<_,_>) (w2: FlowShape<_,_>) ->
             let partition = Partition<'TIn>(2, System.Func<_,int>(pfn)) |> b.Add
             let merge = Merge<'TOut> 2 |> b.Add
 
@@ -89,7 +86,7 @@ let createMessageFlow
 
     Flow.ofSinkAndSourceMat inhub combine outhub
 
-let createSessionFlow (userStore: UserStore) messageFlow controlFlow =
+let createSessionFlow (userStore: UserStore) logger messageFlow controlFlow =
 
     let extractChannelMessage (ChannelMessage (chan, message) | OtherwiseFail (chan, message)) = chan, message
     let extractControlMessage (ControlMessage message | OtherwiseFail message) = message
@@ -161,7 +158,7 @@ let createSessionFlow (userStore: UserStore) messageFlow controlFlow =
 
     let socketFlow =
         Flow.empty<WsMessage, Akka.NotUsed>
-        |> Flow.map extractMessage
+        |> Flow.map (extractMessage logger)
         // |> Flow.log "Extracting message"
         |> Flow.viaMat combinedFlow Keep.right
         |> Flow.map (Json.json >> Text)

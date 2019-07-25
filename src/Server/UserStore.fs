@@ -1,9 +1,10 @@
 module UserStore
 // implements users catalog + persistance
 
+open Microsoft.Extensions.Logging
+
 open Akkling
 open Akkling.Persistence
-open Suave.Logging
 
 open ChatTypes
 open ChatUser
@@ -51,8 +52,6 @@ module private StoreImplementation =
         nextId: int
         users: Map<UserId, UserInfo>
     }
-
-    let logger = Log.create "userstore"
 
     let makeUser nick identity = {identity = identity; nick = nick; status = None; imageUrl = None; channelList = []}
     let makeBot nick = {makeUser nick Bot with imageUrl = makeUserImageUrl "robohash" "echobott"}
@@ -125,7 +124,7 @@ module private StoreImplementation =
         | LeftChannel (userId, chanId) ->
             state |> updateUserInfo userId (fun userInfo -> {userInfo with channelList = userInfo.channelList |> List.except [chanId]})
 
-    let handler (ctx: Eventsourced<_>) =
+    let handler (logger: ILogger) (ctx: Eventsourced<_>) =
         let reply m = ctx.Sender() <! m
         let replyRegisterResult m = ctx.Sender() <! (RegisterResult m)
         let persist = Event >> Persist
@@ -175,9 +174,9 @@ module private StoreImplementation =
                     return loop state
                 | DumpUsers ->
                     
-                    do logger.debug (Message.eventX "DumpUsers ({count} users)" >> Message.setFieldValue "count" (Map.count state.users))
+                    do logger.LogDebug ("DumpUsers ({0} users)", (Map.count state.users))
                     for (UserId uid, user) in state.users |> Map.toList do
-                        do logger.debug (Message.eventX "   {userId}: \"{nick}\"" >> Message.setFieldValue "userId" uid >> Message.setFieldValue "nick" user.nick)
+                        do logger.LogDebug ("   {0}: \"{1}\"", uid, user.nick)
                     return loop state
         }
         loop initialState
@@ -185,9 +184,9 @@ module private StoreImplementation =
 open Persist
 open StoreImplementation
 
-type UserStore(system: Akka.Actor.ActorSystem) =
+type UserStore(system: Akka.Actor.ActorSystem, logger) =
 
-    let storeActor = spawn system "userstore" <| propsPersist handler
+    let storeActor = spawn system "userstore" <| propsPersist (handler logger)
     do storeActor <! (Command DumpUsers)
 
     member __.Register(user: UserInfo) : Result<RegisteredUser,string> Async =

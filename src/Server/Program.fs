@@ -5,6 +5,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
+open Microsoft.Extensions.Logging
 
 type CmdArgs = { ClientPath: string }
 
@@ -61,6 +62,12 @@ let main argv =
             route "/ping"   >=> text "pong"
             route "/"       >=> htmlFile "/pages/index.html" ]
 
+    let configureLogging (builder : ILoggingBuilder) =
+        builder
+            // .AddFilter(fun l -> l.Equals LogLevel.Error)
+           .AddConsole()
+           .AddDebug() |> ignore
+
     let configureApp (app : IApplicationBuilder) =
         // Add Giraffe to the ASP.NET Core pipeline
         app.UseGiraffe webApp
@@ -74,6 +81,7 @@ let main argv =
             .UseKestrel()
             .Configure(Action<IApplicationBuilder> configureApp)
             .ConfigureServices(configureServices)
+            .ConfigureLogging(configureLogging)
             .Build()
     // let application = async {
     //     let _, webServer = startWebServerAsync config app

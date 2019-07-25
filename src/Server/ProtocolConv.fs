@@ -7,7 +7,7 @@ open ChatServer
 
 open FsChat
 
-let (|IsChannelId|_|) = 
+let (|IsChannelId|_|): string -> ChannelId option = 
     Int32.TryParse >> function
     | true, value -> Some (ChannelId value)
     | _ -> None

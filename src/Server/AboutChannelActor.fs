@@ -1,11 +1,9 @@
 module AboutChannelActor
 
 open Akkling
-open Suave.Logging
+open Microsoft.Extensions.Logging
 
 open ChatTypes
-
-let private logger = Log.create "aboutflow"
 
 let private aboutMessage =
     [   """## Welcome to F# Chat
@@ -23,7 +21,7 @@ F# Chat application built with Fable, Elmish, React, Suave, Akka.Streams, Akklin
 * **/avatar <imageUrl>** - change user avatar
 """ ]
 
-let props systemUser =
+let props systemUser (logger: ILogger) =
 
     // TODO put to actor state, otherwise only one instance would be supported
     let mutable users = Map.empty
@@ -34,7 +32,7 @@ let props systemUser =
         function
         | ChannelCommand (NewParticipant (user, subscriber)) ->
             users <- users |> Map.add user subscriber
-            logger.debug (Message.eventX "Sending about to {user}" >> Message.setFieldValue "user" user)
+            logger.LogDebug ("Sending about to {0}", user)
 
             aboutMessage |> List.indexed |> List.iter (fun (i, msgText) ->
                 ctx.System.Scheduler.ScheduleTellOnce( System.TimeSpan.FromMilliseconds(400. * float i), subscriber, mkChatMessage msgText)
@@ -44,7 +42,7 @@ let props systemUser =
 
         | ChannelCommand (ParticipantLeft user) ->
             users <- users |> Map.remove user
-            logger.debug (Message.eventX "Participant left {user}" >> Message.setFieldValue "user" user)
+            logger.LogDebug ("Participant left {0}", user)
             ignored ()
 
         | ChannelCommand (PostMessage (user, _)) ->
@@ -61,4 +59,3 @@ let props systemUser =
 
     in
     props <| actorOf2 behavior
-

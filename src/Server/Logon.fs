@@ -1,7 +1,6 @@
 module Logon
 
-open Suave
-open Suave.Html
+open Giraffe.GiraffeViewEngine
 
 open ChatUser
 
@@ -9,68 +8,69 @@ type ClientSession = NoSession | UserLoggedOn of RegisteredUser
 
 module Views =
     let private partUser (session : ClientSession) = 
-        div ["id", "part-user"] [
+        div [ _id "part-user"] [
             match session with
             | UserLoggedOn (RegisteredUser (_, user)) ->
                 yield p [] [Text (sprintf "Logged on as %s" user.nick)]
                 yield p [][]
-                yield a "/" [] [Text "Proceed to chat screen"]
+                yield a [_href "/"] [Text "Proceed to chat screen"]
                 yield p [][]
                 yield Text "Or you can "
-                yield a "/logoff" [] [Text "log off now"]
+                yield a [_href "/logoff"] [Text "log off now"]
                 yield p [][]
             | _ ->
-                yield tag "form" ["method", "POST"] (
-                    [ p ["class", "subtitle"]
+                yield tag "form" [_method "POST"] (
+                    [ p [_class "subtitle"]
                         [ Text "Log on using your "
-                          a "/oaquery?provider=Google" [] [Text "Google"]
+                          a [_href "/oaquery?provider=Google"] [Text "Google"]
                           Text " or "
-                          a "/oaquery?provider=Github" [] [Text "Github"]
+                          a [_href "/oaquery?provider=Github"] [Text "Github"]
                           Text " account, or..." ]
-                      div ["class", "label"]
+                      div [_class "label"]
                         [ Text "Choose a nickname" ]
-                      div ["class", "field"]
-                        [ div ["class", "control"]
-                            [ tag "input" ["id", "nickname"; "class","input"; "name", "nick"; "type", "text"; "required", "true"] [] ]]
-                      div ["class", "control"]
+                      div [_class "field"]
+                        [ div [_class "control"]
+                            [ tag "input" [_id "nickname"; _class "input"; _name "nick"; _type "text"; _required] [] ]]
+                      div [_class "control"]
                           [ tag "input" [
-                              "id", "login"
-                              "class", "button is-primary"
-                              "type", "submit"; "value", "Connect anonymously"] [] ] ]
+                              _id "login"
+                              _class "button is-primary"
+                              _type "submit"
+                              _value "Connect anonymously"] [] ] ]
                 )
         ]
 
     let page content =
         html []
             [ head []
-                [ title [] "F# Chat server"
-                  link [ "rel", "stylesheet"
-                         "href", "https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.css" ]
-                  link [ "rel", "stylesheet"
-                         "href", "logon.css" ] ]
+                [ title [] [Text "F# Chat server"]
+                  link [ _rel "stylesheet"
+                         _href "https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.css" ]
+                  link [ _rel "stylesheet"
+                         _href "logon.css" ] ]
               body []
-                [ div ["id", "header"]
-                    [ tag "h1" ["class", "title"] [Text "F# Chat server"]
-                      tag "h1" ["class", "subtitle"] [Text "Logon screen"]
+                [ div [_id "header"]
+                    [ tag "h1" [_class "title"] [Text "F# Chat server"]
+                      tag "h1" [_class "subtitle"] [Text "Logon screen"]
                       hr [] ]
                   content
 
-                  tag "footer" ["class", "footer"]
-                    [ div [ "class", "container"]
-                        [ div [ "class", "content has-text-centered"]
+                  tag "footer" [_class "footer"]
+                    [ div [ _class "container"]
+                        [ div [ _class "content has-text-centered"]
                             [   tag "strong" [] [Text "F# Chat"]
                                 Text " built by "
-                                a "https://github.com/OlegZee" [] [Text "Anonymous"]
+                                a [_href "https://github.com/OlegZee"] [Text "Anonymous"]
                                 Text " with (in alphabetical order) "
-                                a "http://getakka.net" [] [Text "Akka.NET"]
+                                a [_href "http://getakka.net"] [Text "Akka.NET"]
                                 Text ", "
-                                a "https://github.com/Horusiath/Akkling" [] [Text "Akkling"]
+                                a [_href "https://github.com/Horusiath/Akkling"] [Text "Akkling"]
                                 Text ", "
-                                a "http://fable.io" [] [Text "Fable"]
+                                a [_href "http://fable.io"] [Text "Fable"]
                                 Text ", "
-                                a "http://ionide.io" [] [Text "Ionide"]
+                                a [_href "http://ionide.io"] [Text "Ionide"]
                                 Text " and "
-                                a "http://suave.io" [] [Text "Suave.IO"] ]
+                                a [_href "http://suave.io"] [Text "Suave.IO"] ]
                         ]]
                 ]]
 

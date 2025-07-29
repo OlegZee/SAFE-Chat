@@ -41,15 +41,17 @@ let root model dispatch =
           (mainAreaView model.currentPage) ]
 
 open Elmish.React
+#if DEBUG
 open Elmish.Debug
 open Elmish.HMR
+#endif
 
 // App
-Program.mkProgram init update root
-|> Program.toNavigable (parseHash Router.route) urlUpdate
+Program.mkProgram State.init State.update root
+|> Program.toNavigable (parseHash Router.route) State.urlUpdate
 #if DEBUG
 |> Program.withDebugger
 |> Program.withHMR
 #endif
-|> Program.withReact "elmish-app"
+|> Program.withReactSynchronous "elmish-app"
 |> Program.run

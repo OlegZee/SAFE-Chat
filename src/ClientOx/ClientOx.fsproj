@@ -18,12 +18,12 @@
     <Compile Include="src/App.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="4.3.0" />
-    <PackageReference Include="Fable.Elmish.React" Version="4.0.0" />
-    <PackageReference Include="Fable.Elmish.Browser" Version="4.0.0" />
-    <PackageReference Include="Fable.Elmish.Debugger" Version="4.0.0" />
+    <PackageReference Include="Fable.Core" Version="4.5.0" />
+    <PackageReference Include="Fable.Elmish.React" Version="5.0.0" />
+    <PackageReference Include="Fable.Elmish.Browser" Version="4.1.0" />
+    <PackageReference Include="Fable.Elmish.Debugger" Version="4.2.2" />
     <PackageReference Include="Fable.Elmish.HMR" Version="8.0.0" />
-    <PackageReference Include="Fable.WebSocket" Version="1.1.0" />
-    <PackageReference Include="Fable.React" Version="10.0.0" />
+    <PackageReference Include="Fable.SimpleHttp" Version="3.6.0" />
+    <PackageReference Include="Fable.React" Version="10.0.0-alpha.1" />
   </ItemGroup>
 </Project>

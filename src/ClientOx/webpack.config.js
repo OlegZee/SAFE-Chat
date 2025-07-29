@@ -12,7 +12,7 @@ console.log("Bundling for " + (isProduction ? "production" : "development") + ".
 module.exports = {
     mode: isProduction ? "production" : "development",
     devtool: isProduction ? false : "eval-source-map",
-    entry: './src/App.fs',
+    entry: './dist/App.js',
     output: {
         filename: 'bundle.js',
         path: resolve('./public'),
@@ -43,15 +43,6 @@ module.exports = {
     },
     module: {
         rules: [
-            {
-                test: /\.fs(x|proj)?$/,
-                use: {
-                    loader: "@fable-org/fable-loader",
-                    options: {
-                        define: isProduction ? [] : ["DEBUG"]
-                    }
-                }
-            },
             {
                 test: /\.scss$/,
                 use: [

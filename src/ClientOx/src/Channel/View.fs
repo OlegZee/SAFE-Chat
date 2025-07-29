@@ -1,9 +1,9 @@
 module Channel.View
 
 open Fable.Core.JsInterop
-open Fable.Helpers.React
+open Fable.React
 
-open Props
+open Fable.React.Props
 open Types
 
 open Fable.ReactMarkdownImport

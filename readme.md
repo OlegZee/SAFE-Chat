@@ -2,21 +2,20 @@
 
 # F#chat
 
-Sample chat application built with netcore, F#, Akka.net and Fable.
+Sample chat application built with .NET 8, F#, Akka.NET and Fable.
 
 ![Harvest chat](docs/FsChat-login.gif "Channel view")
 
 ## Requirements
 
-* [dotnet SDK](https://www.microsoft.com/net/download/core) 2.0.0 or higher
-* [.NET Framework 4.6.1 Developer Pack](https://www.microsoft.com/en-us/download/details.aspx?id=49978) to run e2e tests
-* [node.js](https://nodejs.org) 4.8.2 or higher
-* yarn (`npm i yarn -g`)
-* npm5: JS package manager
+* [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or higher
+* [Node.js](https://nodejs.org) 16 or higher
+* npm (comes with Node.js)
+* Global Fable CLI: `dotnet tool install fable --global`
 
 ## Building and running the app
 
-* Switch to proper (old) node version: `nvm use`
+### Option 1: Legacy Client (Original)
 * Install JS dependencies: `yarn`
 * **Move to `src/Client` folder**: `cd src\Client`
 * Restore NuGet packages: `dotnet restore`
@@ -26,13 +25,54 @@ Sample chat application built with netcore, F#, Akka.net and Fable.
 * Run the server: `dotnet run`
 * Head your browser to `http://localhost:8083/`
 
+### Option 2: Modernized ClientOx (Work in Progress)
+* **Use modern build script**: `build-ox.cmd` (Windows) or equivalent bash script
+* Or manually:
+  * **Move to `src/ClientOx` folder**: `cd src/ClientOx`
+  * Install dependencies: `npm install`
+  * Compile F# to JS: `fable . --outDir dist`
+  * Build bundle: `npm run build`
+  * **Move to `src/Server` folder**: `cd ../Server`
+  * Run the server: `dotnet run`
+
 ## Developing the app
 
-* Start the server (see instruction above)
-* **Move to `src/Client` folder**: `cd src\Client`
-* Start Fable daemon and [Webpack](https://webpack.js.org/) dev server: `dotnet fable webpack-dev-server`
-* In your browser, open: http://localhost:8080/
-* Enjoy HMR (hotload module reload) experience
+### Legacy Client Development
+* Start the server: `dev-server.cmd`
+* Start client dev server: `dev-cli.cmd`
+* Open browser to `http://localhost:8080/`
+
+### Modern ClientOx Development (Recommended)
+* Start the server: `dev-server.cmd`
+* Start modern client dev server: `dev-clientox.cmd`
+* Open browser to `http://localhost:8080/`
+* Enjoy modern HMR with Webpack 5
+
+## Modernization Status
+
+This project has been partially modernized:
+
+### ✅ Completed
+- Upgraded to .NET 8.0
+- Updated Akka.NET packages to latest versions
+- Removed redundant persistence wrapper
+- Created modern Fable 4.x client structure in `src/ClientOx`
+- Modern webpack 5 configuration
+- Updated React and Elmish packages
+
+### 🔄 In Progress
+- Complete WebSocket integration migration
+- Suave to Oxpecker web framework migration
+- Fix remaining compilation issues in ClientOx
+
+### 📁 Project Structure
+```
+src/
+├── Client/          # Legacy Fable client (working)
+├── ClientOx/        # Modern Fable 4.x client (WIP)
+├── Server/          # .NET 8 server with Akka.NET 
+└── Shared/          # Shared protocol definitions
+```
 
 ## Running integration (e2e) tests
 

@@ -93,20 +93,17 @@ let startChatServer () = async {
                 connection-timeout = 30s
                 auto-initialize = on
 
-                event-adapters {
-                  json-adapter = "AkkaStuff+EventAdapter, fschathost"
-                }            
-                event-adapter-bindings {
-                  # to journal
-                  "System.Object, mscorlib" = json-adapter
-                  # from journal
-                  "Newtonsoft.Json.Linq.JObject, Newtonsoft.Json" = [json-adapter]
-                }
             }
         }
     }
     actor {
         ask-timeout = 2000
+        serializers {
+            json = "Akka.Serialization.NewtonSoftJsonSerializer"
+        }
+        serialization-bindings {
+            "System.Object" = json
+        }
         debug {
             # receive = on
             # autoreceive = on

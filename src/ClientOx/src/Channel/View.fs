@@ -6,7 +6,7 @@ open Fable.React
 open Fable.React.Props
 open Types
 
-open Fable.ReactMarkdownImport
+// Temporary: ReactMarkdown removed for compilation - will be replaced with modern alternative
 
 let private formatTs (ts: System.DateTime) =
   match (System.DateTime.Now - ts) with
@@ -61,7 +61,7 @@ let chatInfo dispatch (model: ChannelData) =
     ]
 
 let message (text: string) =
-    [ reactMarkdown [Source text] ]
+    [ str text ] // Temporary: plain text instead of markdown
 
 let messageList (messages: Message Envelope list) =
     div

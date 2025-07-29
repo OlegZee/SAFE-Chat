@@ -9,7 +9,9 @@ import { singleton } from "../fable_modules/fable-library-js.4.25.0/List.js";
 import { root as root_2 } from "./Overview/View.js";
 import { ProgramModule_mkProgram, ProgramModule_run } from "../fable_modules/Fable.Elmish.5.0.0/program.fs.js";
 import { Program_withReactSynchronous } from "../fable_modules/Fable.Elmish.React.5.0.0/react.fs.js";
-import { update, init } from "./State.js";
+import { ProgramModule_toNavigable } from "../fable_modules/Fable.Elmish.Browser.4.1.0/navigation.fs.js";
+import { parseHash } from "../fable_modules/Fable.Elmish.Browser.4.1.0/parser.fs.js";
+import { update, init, urlUpdate as urlUpdate_1 } from "./State.js";
 
 
 export function root(model, dispatch) {
@@ -32,7 +34,9 @@ export function root(model, dispatch) {
     }, ...children_6);
 }
 
-ProgramModule_run(Program_withReactSynchronous("elmish-app", (() => {
+ProgramModule_run(Program_withReactSynchronous("elmish-app", ProgramModule_toNavigable((() => {
+    let parser;
     throw 1;
-})()(ProgramModule_mkProgram(init, update, root))));
+    return (location) => parseHash(parser, location);
+})(), urlUpdate_1, ProgramModule_mkProgram(init, update, root))));
 

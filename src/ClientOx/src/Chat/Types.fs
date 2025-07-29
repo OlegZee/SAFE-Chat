@@ -1,19 +1,20 @@
 module Chat.Types
 
 open FsChat
-open Fable.Websockets.Elmish
-open Fable.Websockets.Elmish.Types
 
 open Channel.Types
 
+// Temporary placeholder for WebSocket - will be replaced with modern implementation
+type SocketHandle = unit
+
 type ChatData = {
-    socket: SocketHandle<Protocol.ServerMsg, Protocol.ClientMsg>
+    socket: SocketHandle
     ChannelList: Map<ChannelId,ChannelInfo>
     Channels: Map<ChannelId, ChannelData>
     NewChanName: string option   // name for new channel (part of SetCreateChanName), None - panel is hidden
 } with
     static member Empty = {
-        socket = SocketHandle.Blackhole()
+        socket = ()
         ChannelList = Map.empty; Channels = Map.empty; NewChanName = None}
 
 type ChatState =

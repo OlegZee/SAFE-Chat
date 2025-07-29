@@ -87,9 +87,7 @@ export function chatInfo(dispatch, model) {
 }
 
 export function message(text) {
-    return singleton((() => {
-        throw 1;
-    })());
+    return singleton(text);
 }
 
 export function messageList(messages) {

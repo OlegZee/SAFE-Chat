@@ -89,5 +89,5 @@ let update (msg: Msg) state: (ChannelData * Msg Cmd) =
 
     | Leave
     | Forward _ ->
-        Browser.console.error <| sprintf "%A message is not expected in channel update." msg
+        printfn "%A message is not expected in channel update." msg
         state, Cmd.none

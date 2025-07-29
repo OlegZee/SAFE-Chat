@@ -5,7 +5,7 @@ import { singleton, append, map, empty as empty_1 } from "../../fable_modules/fa
 import { Cmd_none } from "../../fable_modules/Fable.Elmish.5.0.0/cmd.fs.js";
 import { defaultArgWith, map as map_1 } from "../../fable_modules/fable-library-js.4.25.0/Option.js";
 import { now } from "../../fable_modules/fable-library-js.4.25.0/Date.js";
-import { printf, toText } from "../../fable_modules/fable-library-js.4.25.0/String.js";
+import { toConsole, printf, toText } from "../../fable_modules/fable-library-js.4.25.0/String.js";
 
 export function init() {
     let Users;
@@ -73,9 +73,7 @@ export function update(msg, state) {
         }
         case 10:
         case 9: {
-            (() => {
-                throw 1;
-            })()(toText(printf("%A message is not expected in channel update."))(msg));
+            toConsole(printf("%A message is not expected in channel update."))(msg);
             return [state, Cmd_none()];
         }
         default: {

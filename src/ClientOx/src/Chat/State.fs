@@ -3,10 +3,7 @@ module Chat.State
 open Elmish
 open Elmish.Browser.Navigation
 
-open Fable.Import.Browser
-open Fable.Websockets.Elmish
-open Fable.Websockets.Protocol
-open Fable.Websockets.Elmish.Types
+open Fable.Browser.Dom
 
 open Router
 

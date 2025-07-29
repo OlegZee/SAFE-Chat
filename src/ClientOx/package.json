@@ -1,0 +1,27 @@
+{
+  "name": "fable_elmish_modernized",
+  "version": "1.0.0",
+  "description": "Modern Fable Elmish Chat Client",
+  "scripts": {
+    "build": "dotnet fable . --run webpack --mode production",
+    "start": "dotnet fable watch . --run webpack serve",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@fable-org/fable-loader": "^4.0.0",
+    "css-loader": "^6.8.1",
+    "node-sass": "^9.0.0",
+    "sass-loader": "^13.3.2",
+    "style-loader": "^3.3.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  }
+}

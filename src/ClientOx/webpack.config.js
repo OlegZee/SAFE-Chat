@@ -5,17 +5,18 @@ function resolve(filePath) {
     return path.join(__dirname, filePath)
 }
 
-
-var isProduction = process.argv.indexOf("-p") >= 0;
+var isProduction = process.argv.indexOf("--mode=production") >= 0;
 var port = process.env.SUAVE_FABLE_PORT || "8083";
 console.log("Bundling for " + (isProduction ? "production" : "development") + "...");
 
 module.exports = {
-    devtool: "source-map",
+    mode: isProduction ? "production" : "development",
+    devtool: isProduction ? false : "eval-source-map",
     entry: './src/App.fs',
     output: {
         filename: 'bundle.js',
         path: resolve('./public'),
+        clean: true
     },
     resolve: {
         modules: [
@@ -23,6 +24,9 @@ module.exports = {
         ]
     },
     devServer: {
+        static: {
+            directory: resolve('./public')
+        },
         proxy: [
             {
                 context: ['/api/socket'],
@@ -35,8 +39,8 @@ module.exports = {
                 changeOrigin: true
             }],
         hot: true,
-        inline: true
-      },
+        port: 8080
+    },
     module: {
         rules: [
             {

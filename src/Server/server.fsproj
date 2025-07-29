@@ -29,9 +29,7 @@
     <PackageReference Include="Akkling.Streams" Version="0.13.1" />
     <PackageReference Include="Akkling.Persistence" Version="0.13.1" />
     <PackageReference Include="Akka.Persistence.Sqlite" Version="1.5.32" />
-    <PackageReference Include="Suave" Version="2.2.1" />
-    <PackageReference Include="Suave.OAuth" Version="0.11.0" />
-    <PackageReference Include="Suave.Experimental" Version="2.2.1" />
+    <PackageReference Include="Oxpecker" Version="0.35.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Fable.JsonConverter" Version="1.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />

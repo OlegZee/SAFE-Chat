@@ -22,14 +22,16 @@
     <Compile Include="UserSessionFlow.fs" />
     <Compile Include="Logon.fs" />
     <Compile Include="app.fs" />
+    <Compile Include="AppOx.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Akkling" Version="0.13.1" />
-    <PackageReference Include="Akkling.Streams" Version="0.13.1" />
-    <PackageReference Include="Akkling.Persistence" Version="0.13.1" />
+    <PackageReference Include="Akkling" Version="0.14.0" />
+    <PackageReference Include="Akkling.Streams" Version="0.14.0" />
+    <PackageReference Include="Akkling.Persistence" Version="0.14.0" />
     <PackageReference Include="Akka.Persistence.Sqlite" Version="1.5.32" />
-    <PackageReference Include="Oxpecker" Version="0.35.0" />
+    <PackageReference Include="Oxpecker" Version="1.0.0" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Fable.JsonConverter" Version="1.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />

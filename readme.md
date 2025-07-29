@@ -16,12 +16,13 @@ Sample chat application built with netcore, F#, Akka.net and Fable.
 
 ## Building and running the app
 
+* Switch to proper (old) node version: `nvm use`
 * Install JS dependencies: `yarn`
 * **Move to `src/Client` folder**: `cd src\Client`
-* Install F# dependencies: `dotnet restore`
+* Restore NuGet packages: `dotnet restore`
 * Build client bundle: `dotnet fable webpack -p`
 * **Move to `src/Server` folder**: `cd ..\Server`
-* Install F# dependencies: `dotnet restore`
+* Restore NuGet packages: `dotnet restore`
 * Run the server: `dotnet run`
 * Head your browser to `http://localhost:8083/`
 
@@ -39,6 +40,7 @@ E2e tests are based on canopy and webdriver so currently I know it runs on Windo
 
 * Follow the instructions above to start the server
 * **Move to `test/e2e` folder**: `cd test\e2e`
+* Restore NuGet packages: `dotnet restore`
 * run the tests: `dotnet run`
 
 It used to work with Expecto plugin but it's no longer included in Ionide.
@@ -79,5 +81,6 @@ After client is authenticated all communication between client and server is car
 
 ## References
 
-* [paket and dotnet cli](https://fsprojects.github.io/Paket/paket-and-dotnet-cli.html)
 * [Akkling Wiki](https://github.com/Horusiath/Akkling/wiki)
+* [Fable Documentation](https://fable.io/docs/)
+* [Elmish Documentation](https://elmish.github.io/elmish/)

@@ -5,8 +5,7 @@ open Elmish.Navigation
 open Elmish.UrlParser
 open Fable.Core.JsInterop
 
-open Types
-open State
+open App.Types
 open Router
 open Chat.Types
 
@@ -43,15 +42,13 @@ let root model dispatch =
 open Elmish.React
 #if DEBUG
 open Elmish.Debug
-open Elmish.HMR
 #endif
 
 // App
 Program.mkProgram State.init State.update root
-|> Program.toNavigable (parseHash Router.route) State.urlUpdate
+|> Program.toNavigable (UrlParser.parseHash Router.route) State.urlUpdate
 #if DEBUG
 |> Program.withDebugger
-|> Program.withHMR
 #endif
 |> Program.withReactSynchronous "elmish-app"
 |> Program.run

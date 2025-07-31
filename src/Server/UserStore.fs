@@ -3,7 +3,7 @@ module UserStore
 
 open Akkling
 open Akkling.Persistence
-open Suave.Logging
+open Microsoft.Extensions.Logging
 
 open ChatTypes
 open ChatUser
@@ -52,7 +52,7 @@ module private StoreImplementation =
         users: Map<UserId, UserInfo>
     }
 
-    let logger = Log.create "userstore"
+    let logger = LoggerFactory.Create(fun builder -> builder.AddConsole() |> ignore).CreateLogger("userstore")
 
     let makeUser nick identity = {identity = identity; nick = nick; status = None; imageUrl = None; channelList = []}
     let makeBot nick = {makeUser nick Bot with imageUrl = makeUserImageUrl "robohash" "echobott"}
@@ -175,9 +175,9 @@ module private StoreImplementation =
                     return loop state
                 | DumpUsers ->
                     
-                    do logger.debug (Message.eventX "DumpUsers ({count} users)" >> Message.setFieldValue "count" (Map.count state.users))
+                    do logger.LogDebug("DumpUsers ({count} users)", Map.count state.users)
                     for (UserId uid, user) in state.users |> Map.toList do
-                        do logger.debug (Message.eventX "   {userId}: \"{nick}\"" >> Message.setFieldValue "userId" uid >> Message.setFieldValue "nick" user.nick)
+                        do logger.LogDebug("   {userId}: \"{nick}\"", uid, user.nick)
                     return loop state
         }
         loop initialState

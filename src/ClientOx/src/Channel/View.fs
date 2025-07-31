@@ -27,7 +27,7 @@ let messageInput dispatch model =
           Placeholder "Type the message here..."
           valueOrDefault model.PostText
           OnChange (fun ev -> !!ev.target?value |> (SetPostText >> dispatch))
-          OnKeyPress (fun ev -> if !!ev.which = 13 || !!ev.keyCode = 13 then dispatch PostText)
+          OnKeyPress (fun ev -> if !!ev.keyCode = 13 then dispatch PostText)
         ]
       button
         [ ClassName "btn" ]

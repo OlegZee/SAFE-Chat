@@ -3,7 +3,7 @@ module State
 open Elmish
 open Elmish.Navigation
 open Router
-open Types
+open App.Types
 
 let urlUpdate (result: Option<Route>) model =
     match result with
@@ -17,8 +17,12 @@ let urlUpdate (result: Option<Route>) model =
 let init result =
     let (chinfo, chinfoCmd) = Chat.State.init()
     let (model, cmd) = urlUpdate result { currentPage = Overview; chat = chinfo }
+    // Initialize WebSocket connection
+    let wsUrl = "ws://localhost:8083/api/socket"
+    let connectCmd = Cmd.ofMsg (ChatDataMsg (Chat.Types.ApplicationMsg (Chat.Types.ConnectWebSocket wsUrl)))
     model, Cmd.batch [ cmd
                        Cmd.map (ChatDataMsg) chinfoCmd
+                       connectCmd
                        ]
 
 let update msg model =

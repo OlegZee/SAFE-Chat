@@ -4,6 +4,8 @@ open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
 
+let private jsWindow: obj = emitJsStatement () "window"
+
 open Router
 open Channel.Types
 open Chat.Types
@@ -18,7 +20,7 @@ let menuItem htmlProp name topic isCurrent =
 
 let menuItemChannel (ch: ChannelInfo) currentPage = 
     let targetRoute = Channel ch.Id
-    let jump _ = Browser.location.hash <- toHash targetRoute
+    let jump _ = jsWindow?location?hash <- toHash targetRoute
     menuItem (OnClick jump) ch.Name ch.Topic (targetRoute = currentPage)
 
 let menuItemChannelJoin dispatch = 
@@ -39,7 +41,7 @@ let menu (chatData: ChatState) currentPage dispatch =
             span [Id "userstatus"] [ str me.Status]
             button
               [ Id "logout"; ClassName "btn"; Title "Logout"
-                OnClick (fun _ -> Browser.location.href <- "/logoff") ]
+                OnClick (fun _ -> jsWindow?location?href <- "/logoff") ]
               [ i [ ClassName "mdi mdi-logout-variant"] [] ]
            ]
         yield h2 []
@@ -56,7 +58,7 @@ let menu (chatData: ChatState) currentPage dispatch =
             DefaultValue newChanName
             AutoFocus true
             OnChange (fun ev -> !!ev.target?value |> (Some >> SetNewChanName >> dispatch) )
-            OnKeyPress (fun ev -> if !!ev.which = 13 || !!ev.keyCode = 13 then dispatch CreateJoin)
+            OnKeyPress (fun ev -> if !!ev.keyCode = 13 then dispatch CreateJoin)
             ]
 
         for (_, ch) in chat.Channels |> Map.toSeq do

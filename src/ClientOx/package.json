@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Modern Fable Elmish Chat Client",
   "scripts": {
-    "build": "dotnet fable . --outDir dist && webpack --mode production",
+    "build": "/Users/olegz/.dotnet/tools/fable --outDir dist && webpack --mode production",
     "start": "webpack serve --mode development",
-    "fable:watch": "dotnet fable watch . --outDir dist",
+    "fable:watch": "fable watch . --outDir dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

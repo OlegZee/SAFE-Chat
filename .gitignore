@@ -42,3 +42,6 @@ packages/
 node_modules/
 project.lock.json
 
+src/**/*.fs.js
+/dist/
+src/ClientOx/dist/

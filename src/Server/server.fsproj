@@ -18,19 +18,18 @@
     <Compile Include="../Shared/ChatProtocol.fs" />
     <Compile Include="ProtocolConv.fs" />
     <Compile Include="SocketFlow.fs" />
-    <Compile Include="UserSession.fs" />
     <Compile Include="UserSessionFlow.fs" />
     <Compile Include="Logon.fs" />
-    <Compile Include="app.fs" />
-    <Compile Include="AppOx.fs" />
-    <Compile Include="Program.fs" />
+    <Compile Include="UserSession.fs" />
+    <Compile Include="AppGiraffe.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Akkling" Version="0.14.0" />
     <PackageReference Include="Akkling.Streams" Version="0.14.0" />
     <PackageReference Include="Akkling.Persistence" Version="0.14.0" />
     <PackageReference Include="Akka.Persistence.Sqlite" Version="1.5.32" />
-    <PackageReference Include="Oxpecker" Version="1.0.0" />
+    <PackageReference Include="Giraffe" Version="6.4.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.0" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Fable.JsonConverter" Version="1.0.7" />

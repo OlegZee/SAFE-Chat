@@ -12,11 +12,11 @@ console.log("Bundling for " + (isProduction ? "production" : "development") + ".
 module.exports = {
     mode: isProduction ? "production" : "development",
     devtool: isProduction ? false : "eval-source-map",
-    entry: './dist/App.js',
+    entry: './dist/src/App.js',
     output: {
         filename: 'bundle.js',
         path: resolve('./public'),
-        clean: true
+        clean: false
     },
     resolve: {
         modules: [

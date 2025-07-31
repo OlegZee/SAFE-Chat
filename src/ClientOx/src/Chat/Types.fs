@@ -4,8 +4,8 @@ open FsChat
 
 open Channel.Types
 
-// Temporary placeholder for WebSocket - will be replaced with modern implementation
-type SocketHandle = unit
+// Import WebSocket functionality
+open WebSocket
 
 type ChatData = {
     socket: SocketHandle
@@ -14,7 +14,7 @@ type ChatData = {
     NewChanName: string option   // name for new channel (part of SetCreateChanName), None - panel is hidden
 } with
     static member Empty = {
-        socket = ()
+        socket = { connectionState = Disconnected; url = "" }
         ChannelList = Map.empty; Channels = Map.empty; NewChanName = None}
 
 type ChatState =
@@ -27,7 +27,12 @@ type AppMsg =
     | SetNewChanName of string option
     | CreateJoin
     | Join of chanId: string
-
     | Leave of chanId: string
+    | ConnectWebSocket of string
+    | DisconnectWebSocket
  
-type Msg = Msg<Protocol.ServerMsg, Protocol.ClientMsg, AppMsg>
+type Msg = 
+    | ServerMsg of Protocol.ServerMsg
+    | SendClientMsg of Protocol.ClientMsg 
+    | ApplicationMsg of AppMsg
+    | SocketEvent of WebSocket.SocketEvent

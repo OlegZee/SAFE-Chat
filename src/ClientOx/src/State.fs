@@ -2,8 +2,11 @@ module State
 
 open Elmish
 open Elmish.Navigation
+open Fable.Core.JsInterop
 open Router
 open App.Types
+
+let private jsConsole = Fable.Core.JS.console
 
 let urlUpdate (result: Option<Route>) model =
     match result with
@@ -19,6 +22,7 @@ let init result =
     let (model, cmd) = urlUpdate result { currentPage = Overview; chat = chinfo }
     // Initialize WebSocket connection
     let wsUrl = "ws://localhost:8083/api/socket"
+    jsConsole?log("Connecting to WebSocket at %s", wsUrl)
     let connectCmd = Cmd.ofMsg (ChatDataMsg (Chat.Types.ApplicationMsg (Chat.Types.ConnectWebSocket wsUrl)))
     model, Cmd.batch [ cmd
                        Cmd.map (ChatDataMsg) chinfoCmd

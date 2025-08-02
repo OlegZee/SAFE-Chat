@@ -29,9 +29,9 @@ Sample chat application built with .NET 8, F#, Akka.NET and Fable.
 * **Use modern build script**: `build-ox.cmd` (Windows) or equivalent bash script
 * Or manually:
   * **Move to `src/ClientOx` folder**: `cd src/ClientOx`
-  * Install dependencies: `npm install`
-  * Compile F# to JS: `fable . --outDir dist`
-  * Build bundle: `npm run build`
+  * Install dependencies: `yarn`
+  * Compile F# to JS: `fable`
+  * Build bundle: `yarn build`
   * **Move to `src/Server` folder**: `cd ../Server`
   * Run the server: `dotnet run`
 

@@ -31,11 +31,12 @@ module private Implementation =
             match message with
             | SocketFlow.Text t ->
                 match t |> Json.unjson<Protocol.ServerMsg> with
-                | Protocol.UserMessage {chan = channelId; text = messageText} ->
+                | Ok (Protocol.UserMessage {chan = channelId; text = messageText}) ->
                     match Int32.TryParse channelId with
                     | true, chanId -> ChannelMessage (ChannelId chanId, Message messageText)
                     | _ -> Trash "Bad channel id"
-                | message -> ControlMessage message                
+                | Ok message -> ControlMessage message
+                | Error e -> Trash <| sprintf "Failed to parse message '%s'. Reason: %s" t e
             | x -> Trash <| sprintf "Not a Text message '%A'" x
         with e ->
             do logger.LogError("Failed to parse message '{msg}'. Reason: {e}", message, e)

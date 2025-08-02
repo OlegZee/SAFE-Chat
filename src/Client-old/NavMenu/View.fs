@@ -52,7 +52,7 @@ let menu (chatData: ChatState) currentPage dispatch =
         yield input
           [ Type "text"
             classList ["fs-new-channel", true; "open", opened]
-            Placeholder "Type the channel name here..."
+            Placeholder "Type channel name here..."
             DefaultValue newChanName
             AutoFocus true
             OnChange (fun ev -> !!ev.target?value |> (Some >> SetNewChanName >> dispatch) )

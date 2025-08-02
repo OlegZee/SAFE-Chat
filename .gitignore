@@ -32,16 +32,9 @@ TestResult.*
 
 CHAT_DATA/
 
-**/public/bundle.js*
-
-# NuGet Packages Directory
-paket-files/
-packages/
-
 # Node
 node_modules/
-project.lock.json
 
 src/**/*.fs.js
 /dist/
-src/ClientOx/dist/
+src/ClientOx/public/

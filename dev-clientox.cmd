@@ -1,2 +1,2 @@
 @cd src\ClientOx
-npm run start
+yarn dev

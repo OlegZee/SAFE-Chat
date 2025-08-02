@@ -4,7 +4,7 @@ open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
 
-let private jsWindow: obj = emitJsStatement () "window"
+let private jsWindow: obj = emitJsExpr () "window"
 
 open Router
 open Channel.Types
@@ -58,8 +58,8 @@ let menu (chatData: ChatState) currentPage dispatch =
             DefaultValue newChanName
             AutoFocus true
             OnChange (fun ev -> !!ev.target?value |> (Some >> SetNewChanName >> dispatch) )
-            OnKeyPress (fun ev -> if !!ev.keyCode = 13 then dispatch CreateJoin)
-            ]
+            OnKeyPress (fun ev -> if !!ev.key = "Enter" then dispatch CreateJoin)
+          ]
 
         for (_, ch) in chat.Channels |> Map.toSeq do
           yield menuItemChannel ch.Info currentPage

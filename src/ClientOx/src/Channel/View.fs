@@ -6,7 +6,7 @@ open Fable.React
 open Fable.React.Props
 open Types
 
-// Temporary: ReactMarkdown removed for compilation - will be replaced with modern alternative
+// Simple text formatting - could be enhanced with proper markdown library later
 
 let private formatTs (ts: System.DateTime) =
   match (System.DateTime.Now - ts) with
@@ -27,7 +27,7 @@ let messageInput dispatch model =
           Placeholder "Type the message here..."
           valueOrDefault model.PostText
           OnChange (fun ev -> !!ev.target?value |> (SetPostText >> dispatch))
-          OnKeyPress (fun ev -> if !!ev.keyCode = 13 then dispatch PostText)
+          OnKeyPress (fun ev -> if !!ev.key = "Enter" then dispatch PostText)
         ]
       button
         [ ClassName "btn" ]
@@ -61,7 +61,23 @@ let chatInfo dispatch (model: ChannelData) =
     ]
 
 let message (text: string) =
-    [ str text ] // Temporary: plain text instead of markdown
+    // Simple text processing - splits lines and handles basic formatting
+    text.Split('\n')
+    |> Array.map (fun line -> 
+        if line.Trim().StartsWith("```") then
+            code [] [ str line ]
+        elif line.Trim().StartsWith("*") && line.Trim().EndsWith("*") && line.Length > 2 then
+            em [] [ str (line.Trim().[1..line.Trim().Length-2]) ]
+        elif line.Trim().StartsWith("**") && line.Trim().EndsWith("**") && line.Length > 4 then
+            strong [] [ str (line.Trim().[2..line.Trim().Length-3]) ]
+        else
+            str line
+    )
+    |> Array.toList
+    |> List.collect (fun elem -> [elem; br []])
+    |> function 
+        | [] -> []
+        | elements -> elements |> List.rev |> List.tail |> List.rev // Remove last br
 
 let messageList (messages: Message Envelope list) =
     div

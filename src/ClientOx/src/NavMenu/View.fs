@@ -3,13 +3,11 @@ module NavMenu.View
 open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
-
-let private jsWindow: obj = emitJsExpr () "window"
+open Browser.Dom
 
 open Router
 open Channel.Types
-open Chat.Types
-open Fable.Import
+open ChatPage.Types
 
 let menuItem htmlProp name topic isCurrent =
     button
@@ -20,7 +18,7 @@ let menuItem htmlProp name topic isCurrent =
 
 let menuItemChannel (ch: ChannelInfo) currentPage = 
     let targetRoute = Channel ch.Id
-    let jump _ = jsWindow?location?hash <- toHash targetRoute
+    let jump _ = window.location.hash <- toHash targetRoute
     menuItem (OnClick jump) ch.Name ch.Topic (targetRoute = currentPage)
 
 let menuItemChannelJoin dispatch = 
@@ -41,7 +39,7 @@ let menu (chatData: ChatState) currentPage dispatch =
             span [Id "userstatus"] [ str me.Status]
             button
               [ Id "logout"; ClassName "btn"; Title "Logout"
-                OnClick (fun _ -> jsWindow?location?href <- "/logoff") ]
+                OnClick (fun _ -> window.location.href <- "/logoff") ]
               [ i [ ClassName "mdi mdi-logout-variant"] [] ]
            ]
         yield h2 []
@@ -61,7 +59,7 @@ let menu (chatData: ChatState) currentPage dispatch =
             OnKeyPress (fun ev -> if !!ev.key = "Enter" then dispatch CreateJoin)
           ]
 
-        for (_, ch) in chat.Channels |> Map.toSeq do
+        for _, ch in chat.ConnectedChannels |> Map.toSeq do
           yield menuItemChannel ch.Info currentPage
 
         yield h2 []
@@ -70,7 +68,7 @@ let menu (chatData: ChatState) currentPage dispatch =
                 [ ClassName "btn"; Title "Search" ]
                 [ i [ ClassName "mdi mdi-magnify" ] []]
             ]
-        for (chid, ch) in chat.ChannelList |> Map.toSeq do
-            if chat.Channels |> Map.containsKey chid |> not then
+        for channelId, ch in chat.ChannelList |> Map.toSeq do
+            if not (chat.ConnectedChannels |> Map.containsKey channelId) then
                 yield menuItemChannelJoin dispatch ch
       ]

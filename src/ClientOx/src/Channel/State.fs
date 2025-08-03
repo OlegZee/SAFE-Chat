@@ -7,8 +7,8 @@ open Fable.Import
 let init () : ChannelData * Cmd<Msg> =
     {Users = Map.empty; Messages = []; PostText = ""; Info = ChannelInfo.Empty}, Cmd.none
 
-let init2 (chan: ChannelInfo, users: UserInfo list) : ChannelData * Cmd<Msg> =
-    { (fst <| init()) with Info = chan; Users = users |> List.map (fun u -> u.Id, u) |> Map.ofList }, Cmd.none
+// let init2 (chan: ChannelInfo, users: UserInfo list) : ChannelData * Cmd<Msg> =
+//     { (fst <| init()) with Info = chan; Users = users |> List.map (fun u -> u.Id, u) |> Map.ofList }, Cmd.none
 
 let getUserNick userid users =
     users |> Map.tryFind userid |> Option.map (fun user -> user.Nick)
@@ -89,5 +89,5 @@ let update (msg: Msg) state: (ChannelData * Msg Cmd) =
 
     | Leave
     | Forward _ ->
-        printfn "%A message is not expected in channel update." msg
+        Fable.Core.JS.console.error(sprintf "%A message is not expected in channel update." msg)
         state, Cmd.none

@@ -10,9 +10,9 @@
     <Compile Include="src/Channel/Types.fs" />
     <Compile Include="src/Channel/State.fs" />
     <Compile Include="src/Channel/View.fs" />
-    <Compile Include="src/Chat/Types.fs" />
-    <Compile Include="src/Chat/State.fs" />
-    <Compile Include="src/Overview/View.fs" />
+    <Compile Include="src/ChatPage/Types.fs" />
+    <Compile Include="src/ChatPage/State.fs" />
+    <Compile Include="src/OverviewPage/View.fs" />
     <Compile Include="src/NavMenu/View.fs" />
     <Compile Include="src/Types.fs" />
     <Compile Include="src/State.fs" />
@@ -22,7 +22,7 @@
     <PackageReference Include="Fable.Core" Version="4.5.0" />
     <PackageReference Include="Fable.Elmish.React" Version="4.0.0" />
     <PackageReference Include="Fable.Elmish.Browser" Version="4.0.0" />
-    <PackageReference Include="Fable.Browser.Dom" Version="2.18.1" />
+    <PackageReference Include="Fable.Browser.Dom" Version="2.20.0" />
     <PackageReference Include="Fable.Browser.WebSocket" Version="1.2.0" />
     <PackageReference Include="Fable.Elmish.Debugger" Version="4.0.0" />
     <PackageReference Include="Fable.Elmish.HMR" Version="7.0.0" />

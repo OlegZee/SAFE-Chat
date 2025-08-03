@@ -78,27 +78,29 @@ let mutable private appServerState: AppState = { ActorSystem = None; UserStore =
 // ---------------------------------
 
 let startChatServer () = async {
-    let inline replace (str: string, sub: string) : string -> string = function s -> s.Replace(str, sub) 
-    let dataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAFE-Chat")
-    do Directory.CreateDirectory dataPath |> ignore
-    let journalFileName: string = dataPath </> "journal.db"
-    
-    let configStr = """akka {  
+    try
+        printfn "Initializing actor system with in-memory persistence..."
+        
+        let configStr = """akka {  
     stdout-loglevel = WARNING
     loglevel = DEBUG
     persistence {
         journal {
-            plugin = "akka.persistence.journal.sqlite"
-            sqlite {
-                class = "Akka.Persistence.Sqlite.Journal.SqliteJournal, Akka.Persistence.Sqlite"
-                connection-string = "Data Source=$JOURNAL$;cache=shared;"
-                connection-timeout = 30s
-                auto-initialize = on
+            plugin = "akka.persistence.journal.inmem"
+            inmem {
+                class = "Akka.Persistence.Journal.MemoryJournal, Akka.Persistence"
+            }
+        }
+        snapshot-store {
+            plugin = "akka.persistence.snapshot-store.inmem"
+            inmem {
+                class = "Akka.Persistence.Snapshot.MemorySnapshotStore, Akka.Persistence"
             }
         }
     }
     actor {
-        ask-timeout = 2000
+        ask-timeout = 30s
+        creation-timeout = 30s
         serializers {
             json = "Akka.Serialization.NewtonSoftJsonSerializer"
         }
@@ -107,28 +109,66 @@ let startChatServer () = async {
         }
         debug {
             unhandled = on
+            lifecycle = on
         }
     }
 }"""
-    let config = configStr |> replace ("$JOURNAL$", replace ("\\", "\\\\") journalFileName) |> ConfigurationFactory.ParseString
+        let config = ConfigurationFactory.ParseString(configStr)
 
-    let actorSystem = ActorSystem.Create("chatapp", config)
-    let userStore = UserStore.UserStore actorSystem
+        printfn "Creating actor system..."
+        let actorSystem = ActorSystem.Create("chatapp", config)
+        
+        printfn "Creating user store..."
+        let userStore = UserStore.UserStore actorSystem
 
-    do! Async.Sleep(1000)
+        // Wait for actor system to initialize (shorter wait for in-memory)
+        printfn "Waiting for actor system initialization..."
+        do! Async.Sleep(2000)
 
-    let chatServer = ChatServer.startServer actorSystem
-    do! Diag.createDiagChannel userStore.GetUser actorSystem chatServer (UserStore.UserIds.echo, "Demo", "Channel for testing purposes. Notice the bots are always ready to keep conversation.")
+        printfn "Starting chat server..."
+        let chatServer = ChatServer.startServer actorSystem
+        
+        // Give the chat server time to start (shorter wait for in-memory)
+        printfn "Waiting for chat server to start..."
+        do! Async.Sleep(1000)
+        
+        // Try to initialize channels with retry logic
+        let rec tryInitializeChannels retryCount =
+            async {
+                try
+                    printfn "Creating diagnostic channel (attempt %d)..." (6 - retryCount)
+                    do! Diag.createDiagChannel userStore.GetUser actorSystem chatServer (UserStore.UserIds.echo, "Demo", "Channel for testing purposes. Notice the bots are always ready to keep conversation.")
 
-    do! chatServer |> getOrCreateChannel "Test" "empty channel" (GroupChatChannel { autoRemove = false }) |> Async.Ignore
-    do! chatServer |> getOrCreateChannel "About" "interactive help" (OtherChannel <| AboutChannelActor.props UserStore.UserIds.system) |> Async.Ignore
+                    printfn "Creating default channels (attempt %d)..." (6 - retryCount)
+                    do! chatServer |> getOrCreateChannel "Test" "empty channel" (GroupChatChannel { autoRemove = false }) |> Async.Ignore
+                    do! chatServer |> getOrCreateChannel "About" "interactive help" (OtherChannel <| AboutChannelActor.props UserStore.UserIds.system) |> Async.Ignore
+                    
+                    printfn "Channels created successfully."
+                with
+                | ex when retryCount > 0 ->
+                    printfn "Channel creation failed (attempt %d): %s. Retrying..." (6 - retryCount) ex.Message
+                    do! Async.Sleep(3000)
+                    return! tryInitializeChannels (retryCount - 1)
+                | ex ->
+                    printfn "Channel creation failed after all retries: %s" ex.Message
+                    return failwith (sprintf "Failed to create channels: %s" ex.Message)
+            }
+        
+        do! tryInitializeChannels 5
 
-    appServerState <- { 
-        ActorSystem = Some actorSystem
-        UserStore = Some userStore 
-        ChatServer = Some chatServer 
-    }
-    return ()
+        printfn "Chat server initialization completed successfully."
+        
+        appServerState <- { 
+            ActorSystem = Some actorSystem
+            UserStore = Some userStore 
+            ChatServer = Some chatServer 
+        }
+        return ()
+    with
+    | ex -> 
+        printfn "Error during chat server initialization: %s" ex.Message
+        printfn "Stack trace: %s" ex.StackTrace
+        return failwith (sprintf "Failed to initialize chat server: %s" ex.Message)
 }
 
 // ---------------------------------
@@ -362,42 +402,48 @@ let configureApp (app: IApplicationBuilder) =
 [<EntryPoint>]
 let main argv =
     async {
-        // Start the chat server (Akka.NET backend)
-        do! startChatServer()
-        
-        // Parse command line arguments
-        let port = 
-            if argv.Length > 0 && argv.[0].StartsWith("--port=") then
-                match Int32.TryParse(argv.[0].Substring(7)) with
-                | (true, p) -> p
-                | _ -> 8083
-            else 8083
+        try
+            // Start the chat server (Akka.NET backend)
+            do! startChatServer()
+            
+            // Parse command line arguments
+            let port = 
+                if argv.Length > 0 && argv.[0].StartsWith("--port=") then
+                    match Int32.TryParse(argv.[0].Substring(7)) with
+                    | (true, p) -> p
+                    | _ -> 8083
+                else 8083
 
-        // Create and configure web application
-        let builder = WebApplication.CreateBuilder(argv)
-        
-        // Configure services
-        configureServices builder.Services
-        builder.Services.AddLogging(fun logging -> 
-            logging.AddConsole() |> ignore
-            logging.SetMinimumLevel(LogLevel.Information) |> ignore) |> ignore
+            // Create and configure web application
+            let builder = WebApplication.CreateBuilder(argv)
+            
+            // Configure services
+            configureServices builder.Services
+            builder.Services.AddLogging(fun logging -> 
+                logging.AddConsole() |> ignore
+                logging.SetMinimumLevel(LogLevel.Information) |> ignore) |> ignore
 
-        // Build the application
-        let app = builder.Build()
-        
-        // Configure request pipeline  
-        configureApp app
-        
-        // Configure URLs
-        app.Urls.Add($"http://localhost:{port}")
-        
-        printfn "Starting F# Chat server with Giraffe"
-        printfn $"Server listening on http://localhost:{port}"
-        printfn "Press Ctrl+C to shutdown"
-        
-        // Run the application
-        do! app.RunAsync() |> Async.AwaitTask
-        
-        return 0
+            // Build the application
+            let app = builder.Build()
+            
+            // Configure request pipeline  
+            configureApp app
+            
+            // Configure URLs
+            app.Urls.Add($"http://localhost:{port}")
+            
+            printfn "Starting F# Chat server with Giraffe"
+            printfn $"Server listening on http://localhost:{port}"
+            printfn "Press Ctrl+C to shutdown"
+            
+            // Run the application
+            do! app.RunAsync() |> Async.AwaitTask
+            
+            return 0
+        with
+        | ex ->
+            printfn "Fatal error during application startup: %s" ex.Message
+            printfn "Stack trace: %s" ex.StackTrace
+            return 1
     }
     |> Async.RunSynchronously

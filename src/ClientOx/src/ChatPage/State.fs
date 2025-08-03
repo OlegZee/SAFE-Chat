@@ -1,16 +1,12 @@
-module Chat.State
+module ChatPage.State
 
 open Elmish
-open Fable.Core
-open Fable.Core.JsInterop
+open Browser.Dom
 
-let private jsConsole = JS.console
-
-open Router
 open WebSocket
 
 open Channel.Types
-open Chat.Types
+open ChatPage.Types
 
 open FsChat
 
@@ -30,30 +26,34 @@ module private Conversions =
 module private Implementation =
 
     let updateChanCmd chanId (f: ChannelData -> ChannelData * Channel.Types.Msg Cmd) (chat: ChatData) : ChatData * Types.Msg Cmd =
-        match chat.Channels |> Map.tryFind chanId with
+        match chat.ConnectedChannels |> Map.tryFind chanId with
         | Some channel ->
             let newData, cmd = f channel
-            { chat with Channels = chat.Channels |> Map.add chanId newData },
+            { chat with ConnectedChannels = chat.ConnectedChannels |> Map.add chanId newData },
               cmd |> Cmd.map (fun x -> Types.ApplicationMsg (ChannelMsg (chanId, x)))
         | None ->
-            jsConsole?error ("Channel %s update failed - channel not found", chanId)
+            console.error ("Channel %s update failed - channel not found", chanId)
             chat, Cmd.none
 
     let updateChan chanId (f: ChannelData -> ChannelData) (chat: ChatData) : ChatData =
-        match chat.Channels |> Map.tryFind chanId with
+        match chat.ConnectedChannels |> Map.tryFind chanId with
         | Some channel ->
             match f channel with
             | newData when newData = channel -> chat
-            | newData -> { chat with Channels = chat.Channels |> Map.add chanId newData }
+            | newData -> { chat with ConnectedChannels = chat.ConnectedChannels |> Map.add chanId newData }
         | None ->
-            jsConsole?error ("Channel %s update failed - channel not found", chanId)
+            console.error ("Channel %s update failed - channel not found", chanId)
             chat
 
     let mutable lastRequestId = 10000
-    let toCommand x =
+    let toServerMessage x =
         let reqId = lastRequestId.ToString()
         lastRequestId <- lastRequestId + 1
         Protocol.ServerMsg.ServerCommand (reqId, x)
+
+    let toSocketCommand (socket: SocketHandle) (msg: Protocol.ServerCommand) : Cmd<Msg> =
+        let cmd = msg |> toServerMessage |> createWebSocketCmd socket |> Cmd.map SocketEvent
+        cmd
 
     let applicationMsgUpdate (msg: AppMsg) (state: ChatData) :(ChatData * Types.Msg Cmd) =
 
@@ -61,14 +61,15 @@ module private Implementation =
         | Nop -> state, Cmd.none
 
         | ChannelMsg (chanId, Forward text) ->
-            let message = Protocol.UserMessage {text = text; chan = chanId}
-            let cmd = WebSocket.createWebSocketCmd state.socket message |> Cmd.map SocketEvent
+            let message =
+                match text with
+                | cmd when cmd.StartsWith "/" -> Protocol.UserCommand {command = cmd; chan = chanId} |> toServerMessage
+                | _ -> Protocol.UserMessage {text = text; chan = chanId}
+            let cmd = message |> createWebSocketCmd state.socket |> Cmd.map SocketEvent
             state, cmd
 
         | ChannelMsg (chanId, Msg.Leave) ->
-            let command = Protocol.Leave chanId |> toCommand
-            let cmd = WebSocket.createWebSocketCmd state.socket command |> Cmd.map SocketEvent
-            state, cmd
+            state, Protocol.Leave chanId |> toSocketCommand state.socket
 
         | ChannelMsg (chanId, msg) ->
             let newState, cmd = state |> updateChanCmd chanId (Channel.State.update msg)
@@ -80,113 +81,96 @@ module private Implementation =
         | CreateJoin ->
             match state.NewChanName with
             | Some channelName ->
-                let command = Protocol.JoinOrCreate channelName |> toCommand
-                let cmd = WebSocket.createWebSocketCmd state.socket command |> Cmd.map SocketEvent
-                { state with NewChanName = None }, cmd
+                { state with NewChanName = None }, Protocol.JoinOrCreate channelName |> toSocketCommand state.socket
             | None -> state, Cmd.none
 
         | Join chanId ->
-            let command = Protocol.Join chanId |> toCommand
-            let cmd = WebSocket.createWebSocketCmd state.socket command |> Cmd.map SocketEvent
-            state, cmd
+            state, Protocol.Join chanId |> toSocketCommand state.socket
             
         | Leave chanId ->
-            let command = Protocol.Leave chanId |> toCommand
-            let cmd = WebSocket.createWebSocketCmd state.socket command |> Cmd.map SocketEvent
-            state, cmd
+            state, Protocol.Leave chanId |> toSocketCommand state.socket
             
         | ConnectWebSocket url ->
-            jsConsole?log ("Connecting to WebSocket:", url)
-            // Pure functional approach: set state to Connecting and return command
+            console.log ("Connecting to WebSocket:", url)
             let connectingState = { state with socket = { connectionState = Connecting; url = url } }
-            // Return command that will actually create the WebSocket
-            let connectCmd = WebSocket.createConnectionCmd url |> Cmd.map SocketEvent
-            connectingState, connectCmd
+            connectingState, createConnectionCmd url |> Cmd.map SocketEvent
             
         | DisconnectWebSocket ->
-            let closedSocket = WebSocket.closeSocket state.socket
+            let closedSocket = closeSocket state.socket
             { state with socket = closedSocket }, Cmd.none
 
     // Handle incoming WebSocket messages
     let handleSocketEvent (event: WebSocket.SocketEvent) (state: ChatData) : ChatData * Types.Msg Cmd =
         match event with
         | ConnectionOpened socketHandle ->
-            jsConsole?log "WebSocket connected, sending Greets"  
-            // Update state with the connected socket and send greeting
+            console.log "WebSocket connected, sending Greets"  
             let connectedState = { state with socket = socketHandle }
-            let cmd = WebSocket.createWebSocketCmd socketHandle Protocol.Greets |> Cmd.map SocketEvent
+            let cmd = Protocol.Greets |> createWebSocketCmd socketHandle |> Cmd.map SocketEvent
             connectedState, cmd
             
         | ConnectionClosed ->
-            jsConsole?log "WebSocket disconnected"
+            console.log "WebSocket disconnected"
             let disconnectedSocket = { state.socket with connectionState = Disconnected }
             { state with socket = disconnectedSocket }, Cmd.none
             
         | ConnectionError error ->
-            jsConsole?log ("WebSocket error:", error)
+            console.log ("WebSocket error:", error)
             let errorSocket = { state.socket with connectionState = Error error }
             { state with socket = errorSocket }, Cmd.none
             
         | MessageReceived json ->
             match deserializeClientMsg<Protocol.ClientMsg> json with
             | Some clientMsg ->
-                jsConsole?log ("Received client message:", clientMsg)
+                console.log ("Received client message:", clientMsg)
                 state, Cmd.ofMsg (SendClientMsg clientMsg)
             | None ->
-                jsConsole?log ("Failed to parse message:", json)
+                console.log ("Failed to parse message:", json)
                 state, Cmd.none
                 
         | MessageSent json ->
-            jsConsole?log ("Sent message:", json)
+            console.log ("Sent message:", json)
             state, Cmd.none
 
     // Handle incoming server messages (converted from ClientMsg)
     let handleServerMessage (msg: Protocol.ClientMsg) (state: ChatData) : ChatData * Types.Msg Cmd =
         match msg with
         | Protocol.Hello helloInfo ->
-            jsConsole?log ("Hello received:", helloInfo)
-            // Update channel list and user info
-            // let channels = helloInfo.channels |> List.map (fun ch -> ch.id, Conversions.mapChannel ch) |> Map.ofList
-            // { state with ChannelList = channels }, Cmd.none
+            console.log ("Hello received:", helloInfo)
+            let channels = helloInfo.channels |> List.map (fun ch -> ch.id, Conversions.mapChannel ch) |> Map.ofList
             state, Cmd.none
             
         | Protocol.CmdResponse (reqId, response) ->
-            jsConsole?log ("Command response:", reqId, response)
+            console.log ("Command response:", reqId, response)
             // Handle command responses (join, leave, etc.)
             state, Cmd.none
             
         | Protocol.ChanMsg msgInfo ->
-            jsConsole?log ("Channel message:", msgInfo)
-            // Update channel with new message
+            console.log ("Channel message:", msgInfo)
             let (authorId, message) = Conversions.mapUserMessage msgInfo
-            state, Cmd.none
+            let channelCmd = AppendUserMessage (authorId, message)
+            state |> updateChan msgInfo.chan (fun chanData -> 
+                fst (Channel.State.update channelCmd chanData)), Cmd.none
             
         | Protocol.ServerEvent eventInfo ->
-            jsConsole?log ("Server event:", eventInfo)
+            console.log ("Server event:", eventInfo)
             // Handle server events (user joined, left, etc.)
             state, Cmd.none
 
 let init () : ChatState * Types.Msg Cmd =
-    NotConnected, Cmd.none
+    let socketAddr = buildWebSocketUrl window.location.host
+    console.log ("Opening socket at:", socketAddr)
+    NotConnected, Cmd.ofMsg (ApplicationMsg (ConnectWebSocket socketAddr))
 
 let update (msg : Types.Msg) (state : ChatState) : ChatState * Types.Msg Cmd =
     match state, msg with
     | NotConnected, ApplicationMsg (ConnectWebSocket url) ->
-        // Allow connection from NotConnected state
         let initialChat = ChatData.Empty
         let newChat, cmd = Implementation.applicationMsgUpdate (ConnectWebSocket url) initialChat
-        // For now, create a dummy user - in real app this would come from authentication
         let dummyUser = { Id = "temp"; Nick = "Anonymous"; IsBot = false; Status = "online"; Online = true; ImageUrl = None; isMe = true }
         Connected (dummyUser, newChat), cmd
         
     | NotConnected, _ ->
-        // Authentication flow handling for production deployment:
-        // - Check for existing session cookies (Suave authentication)
-        // - Redirect unauthenticated users to OAuth login (Google/GitHub) 
-        // - Validate JWT tokens and refresh if needed
-        // - Support anonymous user mode with limited privileges
-        // - Initialize user profile from CHAT_DATA/suave.oauth.config
-        jsConsole?log ("Not connected, ignoring message:", msg)
+        console.log ("Not connected, ignoring message:", msg)
         state, Cmd.none
         
     | Connected (user, chat), ApplicationMsg appMsg ->
@@ -196,7 +180,6 @@ let update (msg : Types.Msg) (state : ChatState) : ChatState * Types.Msg Cmd =
     | Connected (user, chat), SendClientMsg (Protocol.Hello helloInfo) ->
         let me = Conversions.mapUserInfo ((=) helloInfo.me.id) helloInfo.me
         let channels = helloInfo.channels |> List.map (fun ch -> ch.id, Conversions.mapChannel ch) |> Map.ofList
-
         Connected (me, { chat with ChannelList = channels }), Cmd.none
 
     | Connected (user, chat), SendClientMsg clientMsg ->
@@ -208,14 +191,14 @@ let update (msg : Types.Msg) (state : ChatState) : ChatState * Types.Msg Cmd =
         Connected (user, newChat), cmd
     
     | _, msg ->
-        jsConsole?log ("Unhandled message in current state:", state, msg)
+        console.log ("Unhandled message in current state:", state, msg)
         state, Cmd.none
 
 // URL navigation helper (simplified)
 let urlUpdate (route: Router.Route option) (state: ChatState) : ChatState * Types.Msg Cmd =
     match route with
     | Some newRoute ->
-        jsConsole?log ("Navigating to route:", newRoute)
+        console.log ("Navigating to route:", newRoute)
         state, Cmd.none
     | None ->
         state, Cmd.none

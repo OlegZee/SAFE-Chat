@@ -13,7 +13,7 @@ module UserIds =
     let echo = UserId "echo"
 
 module Persist =
-    // keep this module public, so that Json serializer (Newtonsoft's) will not complain
+    // keep this module public, so that Json serializer (Thoth.Json) will not complain
     type UpdateChannelInfo =
         | Joined of ChannelId
         | Left of ChannelId

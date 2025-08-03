@@ -5,8 +5,6 @@ open Fable.Core.JsInterop
 open Elmish
 open Thoth.Json
 
-open FsChat
-
 // WebSocket connection state
 type ConnectionState =
     | Disconnected
@@ -59,16 +57,12 @@ let closeSocket (socket: SocketHandle) : SocketHandle =
         { socket with connectionState = Disconnected }
     | _ -> socket
 
-let inline private toJson<'T> x = Encode.Auto.toString<'T>(0, x)
-let inline private ofJson<'T> json = Decode.Auto.fromString<'T>(json)
-
-
 // JSON serialization helpers
 let inline serializeServerMsg<'T> (msg: 'T) : string =
     Encode.Auto.toString<'T>(0, msg)
 
 let inline deserializeClientMsg<'T> (json: string) : 'T option =
-    match ofJson<'T>(json) with
+    match Decode.Auto.fromString<'T> json with
     | Result.Ok msg -> Some msg
     | Result.Error e ->
         JS.console.error("Failed to deserialize ClientMsg", json, "Error:", e)

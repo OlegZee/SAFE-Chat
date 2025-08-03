@@ -1,21 +1,18 @@
-module Chat.Types
+module ChatPage.Types
 
 open FsChat
-
-open Channel.Types
-
-// Import WebSocket functionality
 open WebSocket
+open Channel.Types
 
 type ChatData = {
     socket: SocketHandle
     ChannelList: Map<ChannelId,ChannelInfo>
-    Channels: Map<ChannelId, ChannelData>
+    ConnectedChannels: Map<ChannelId, ChannelData>
     NewChanName: string option   // name for new channel (part of SetCreateChanName), None - panel is hidden
 } with
     static member Empty = {
         socket = { connectionState = Disconnected; url = "" }
-        ChannelList = Map.empty; Channels = Map.empty; NewChanName = None}
+        ChannelList = Map.empty; ConnectedChannels = Map.empty; NewChanName = None}
 
 type ChatState =
     | NotConnected

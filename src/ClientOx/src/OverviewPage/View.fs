@@ -1,4 +1,4 @@
-module Overview.View
+module OverviewPage.View
 
 open Fable.React
 open Fable.React.Props

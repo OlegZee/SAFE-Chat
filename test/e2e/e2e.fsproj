@@ -2,9 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net461</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <DebugType>portable</DebugType>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Selectors.fs" />
@@ -13,13 +12,8 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="App.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Canopy" Version="2.1.0" />
-    <PackageReference Include="Expecto" Version="8.10.1" />
+    <PackageReference Include="Expecto" Version="10.2.0" />
     <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="*" />
   </ItemGroup>
 </Project>

@@ -2,7 +2,7 @@ name: Dev Branch Build and Test
 
 on:
   push:
-    branches: [ dev, ci ]
+    branches: [ dev, feature/ci ]
     paths-ignore:
       - '**.md'
       - 'docs/**'

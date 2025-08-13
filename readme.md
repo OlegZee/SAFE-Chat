@@ -1,5 +1,7 @@
 # SAFE-Chat (F#Chat)
 
+[![Dev Build](https://github.com/OlegZee/SAFE-Chat/actions/workflows/dev-build.yml/badge.svg)](https://github.com/OlegZee/SAFE-Chat/actions/workflows/dev-build.yml)
+
 A sample chat application built with .NET 8, F#, Akka.NET, and Fable.
 
 ![Harvest chat](docs/FsChat-login.gif "Channel view")
@@ -32,14 +34,12 @@ Alternatively, follow the instructions below:
 * Run the server: `dotnet run`
 * Navigate your browser to `http://localhost:8083/`
 
-### Option 2: Modernized Client
-* **Use modern build script**: `build-ox.cmd` (Windows) or equivalent bash script
-* Or manually:
-  * **Move to `src/Client` folder**: `cd src/Client`
-  * Install dependencies: `yarn`
-  * Build bundle: `yarn build`
-  * **Move to `src/Server` folder**: `cd ../Server`
-  * Run the server: `dotnet run`
+### Alternative Manual Build Process
+* **Move to `src/Client` folder**: `cd src/Client`
+* Install dependencies: `yarn`
+* Build bundle: `yarn build`
+* **Move to `src/Server` folder**: `cd ../Server`
+* Run the server: `dotnet run`
 
 ## Developing the app
 
@@ -98,7 +98,7 @@ The client is written in F# with the help of Fable and Elmish (library/framework
 
 ### Communication protocol
 
-After the client is authenticated, all communication between client and server is carried via WebSockets. The protocol is defined in the `src/Shared/ChatProtocol.fs` file which is shared between client and server projects.
+After the client is authenticated, all communication between client and server is carried via WebSockets. The protocol is defined in the `src/Client/Shared/ChatProtocol.fs` file which is shared between client and server projects.
 
 ### Persistence
 

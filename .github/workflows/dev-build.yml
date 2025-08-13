@@ -1,0 +1,130 @@
+name: Dev Branch Build and Test
+
+on:
+  push:
+    branches: [ dev, ci ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        dotnet-version: ['8.0.x']
+        node-version: ['22.x']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ matrix.dotnet-version }}
+        global-json-file: global.json
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+    
+    - name: Install Yarn
+      run: npm install -g yarn
+    
+    - name: Cache Yarn dependencies
+      uses: actions/cache@v4
+      with:
+        path: src/Client/node_modules
+        key: ${{ runner.os }}-yarn-${{ hashFiles('src/Client/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-yarn-
+    
+    - name: Install Fable CLI
+      run: dotnet tool install fable --global
+    
+    - name: Cache .NET packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.fsproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+    
+    - name: Restore dependencies
+      run: ./build.sh restore
+      shell: bash
+    
+    - name: Build application
+      run: ./build.sh build
+      shell: bash
+    
+    - name: Setup Chrome for E2E tests
+      run: |
+        # Chrome is pre-installed on ubuntu-latest runners
+        google-chrome --version
+        
+        # Install xvfb for headless display
+        sudo apt-get update
+        sudo apt-get install -y xvfb
+        
+        # Start virtual display
+        export DISPLAY=:99
+        Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
+    
+    - name: Run E2E tests
+      run: |
+        # Start server in background
+        ./build.sh start:server &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        echo "Waiting for server to start..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8083 > /dev/null; then
+            echo "Server is running"
+            break
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 2
+        done
+        
+        # Run E2E tests
+        cd test/e2e
+        dotnet restore
+        dotnet run
+        
+        # Clean up
+        kill $SERVER_PID || true
+      shell: bash
+      env:
+        ASPNETCORE_ENVIRONMENT: Development
+        ASPNETCORE_URLS: http://localhost:8083
+        CI: true
+        DISPLAY: ":99"
+        CANOPY_HEADLESS: true
+        CHROME_ARGS: "--no-sandbox --disable-dev-shm-usage --disable-gpu"
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts-${{ github.sha }}
+        path: |
+          src/Client/public/
+          src/Server/bin/Debug/net8.0/
+        retention-days: 30
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ github.sha }}
+        path: |
+          test/e2e/bin/
+          build.log
+        retention-days: 14

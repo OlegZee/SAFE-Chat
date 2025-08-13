@@ -14,6 +14,6 @@
   <ItemGroup>
     <PackageReference Include="Canopy" Version="2.1.0" />
     <PackageReference Include="Expecto" Version="10.2.0" />
-    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="*" />
+    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="138.*" />
   </ItemGroup>
 </Project>

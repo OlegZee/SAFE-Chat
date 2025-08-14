@@ -108,8 +108,8 @@ jobs:
         CI: true
         DISPLAY: ":99"
         CANOPY_HEADLESS: true
-  CHROME_ARGS: "--no-sandbox --disable-dev-shm-usage --disable-gpu"
-  USE_SYSTEM_CHROMEDRIVER: "true"
+        CHROME_ARGS: "--no-sandbox --disable-dev-shm-usage --disable-gpu"
+        USE_SYSTEM_CHROMEDRIVER: "true"
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4

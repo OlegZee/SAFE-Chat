@@ -19,7 +19,10 @@ let logout () =
 
 // Switches to existing channel, fails if no such channel exists
 let switchChannel name =
-    click <| Selectors.switchChannel name
+    // Find all channel buttons and click the one with matching text
+    let channelButtons = elements ".fs-menu button.fs-channel"
+    let targetButton = channelButtons |> List.find (fun btn -> btn.Text.Contains(name : string))
+    click targetButton
     on "http://localhost:8083/#channel"
     (element Selectors.selectedChanBtn).Text |> contains name
 

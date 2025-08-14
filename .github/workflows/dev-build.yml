@@ -75,12 +75,6 @@ jobs:
           export DISPLAY=:99
           Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
 
-      - name: Export ChromeDriver env
-        run: |
-          which chromedriver
-          echo "CHROMEDRIVER_PATH=$(which chromedriver)" >> $GITHUB_ENV
-          echo "CHROMEWEBDRIVER=$(dirname $(which chromedriver))" >> $GITHUB_ENV
-
       - name: Run E2E tests
         run: |
           # Start server in background

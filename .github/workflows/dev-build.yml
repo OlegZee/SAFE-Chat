@@ -64,34 +64,16 @@ jobs:
       run: ./build.sh build
       shell: bash
     
-    - name: Setup Chrome and ChromeDriver for E2E tests
+    - name: Setup Chrome (installs matching ChromeDriver)
+      uses: browser-actions/setup-chrome@v1
+      with:
+        chrome-version: stable
+        install-chromedriver: true
+    
+    - name: Setup headless display (Linux)
       run: |
-        # Check Chrome version
-        CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
-        echo "Chrome version: $CHROME_VERSION"
-        
-        # Download compatible ChromeDriver
-        CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1)
-        echo "Chrome major version: $CHROME_MAJOR_VERSION"
-        
-        # Get the latest ChromeDriver version for this Chrome major version
-        CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}")
-        echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
-        
-        # Download and install ChromeDriver
-        wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
-        unzip chromedriver_linux64.zip
-        sudo mv chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        
-        # Verify installation
-        chromedriver --version
-        
-        # Install xvfb for headless display
         sudo apt-get update
         sudo apt-get install -y xvfb
-        
-        # Start virtual display
         export DISPLAY=:99
         Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
     
@@ -126,8 +108,9 @@ jobs:
         CI: true
         DISPLAY: ":99"
         CANOPY_HEADLESS: true
-        CHROME_ARGS: "--no-sandbox --disable-dev-shm-usage --disable-gpu"
-    
+  CHROME_ARGS: "--no-sandbox --disable-dev-shm-usage --disable-gpu"
+  USE_SYSTEM_CHROMEDRIVER: "true"
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:

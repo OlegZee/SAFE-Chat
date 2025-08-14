@@ -11,6 +11,33 @@ let main args =
     let useSystemDriver = (Environment.GetEnvironmentVariable("USE_SYSTEM_CHROMEDRIVER") = "true")
     if useSystemDriver then
         printfn "Using system-installed ChromeDriver from PATH (skipping WebDriverManager)."
+        let trySetChromeDirFromEnv () =
+            let candidates = [ "CHROMEDRIVER_PATH"; "CHROMEWEBDRIVER" ]
+            let tryGetDir (v:string) =
+                if String.IsNullOrWhiteSpace v then None
+                else if System.IO.File.Exists v then Some (System.IO.Path.GetDirectoryName v)
+                elif System.IO.Directory.Exists v then Some v
+                else None
+            candidates
+            |> List.tryPick (fun name -> Environment.GetEnvironmentVariable(name) |> tryGetDir)
+        let trySetChromeDirFromPath () =
+            let path = Environment.GetEnvironmentVariable("PATH")
+            if String.IsNullOrWhiteSpace path then None else
+            path.Split(':')
+            |> Array.tryPick (fun d ->
+                let p = System.IO.Path.Combine(d, if OperatingSystem.IsWindows() then "chromedriver.exe" else "chromedriver")
+                if System.IO.File.Exists p then Some d else None)
+        match trySetChromeDirFromEnv () with
+        | Some dir ->
+            configuration.chromeDir <- dir
+            printfn "ChromeDriver directory set from env to: %s" dir
+        | None ->
+            match trySetChromeDirFromPath () with
+            | Some dir ->
+                configuration.chromeDir <- dir
+                printfn "ChromeDriver directory found on PATH: %s" dir
+            | None ->
+                printfn "Warning: Could not locate chromedriver on PATH or env; relying on Selenium defaults."
     else
         // Setup ChromeDriver with WebDriverManager for automatic version compatibility
         printfn "Setting up ChromeDriver with WebDriverManager..."

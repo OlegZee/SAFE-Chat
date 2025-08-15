@@ -64,7 +64,7 @@ jobs:
         run: ./build.sh build
         shell: bash
 
-      - name: Setup Chrome (for WebDriverManager detection)
+      - name: Setup Chrome (Selenium Manager will handle ChromeDriver)
         uses: browser-actions/setup-chrome@v2
 
       - name: Setup headless display (Linux)

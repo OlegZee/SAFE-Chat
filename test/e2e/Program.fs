@@ -2,7 +2,9 @@
 open canopy
 open canopy.classic
 open canopy.runner.classic
+open canopy.configuration
 open System
+open System.IO
 
 open WebDriverManager
 open WebDriverManager.DriverConfigs.Impl
@@ -10,8 +12,11 @@ open WebDriverManager.DriverConfigs.Impl
 [<EntryPoint>]
 let main args =
 
-    // Let WebDriverManager handle Chrome and ChromeDriver version matching automatically
-    (DriverManager ()).SetUpDriver(new ChromeConfig(), Helpers.VersionResolveStrategy.MatchingBrowser) |> ignore
+    // Use WebDriverManager to download ChromeDriver and get its path
+    let chromeDriverPath = (DriverManager ()).SetUpDriver(new ChromeConfig(), Helpers.VersionResolveStrategy.MatchingBrowser)
+    
+    // Tell Canopy where to find ChromeDriver
+    chromeDir <- Path.GetDirectoryName(chromeDriverPath)
 
     // Configure for CI environment - Canopy 2.1.0 uses environment variable for headless
     if System.Environment.GetEnvironmentVariable("CI") = "true" then

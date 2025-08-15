@@ -44,7 +44,9 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Install Fable CLI
-        run: dotnet tool install fable --global
+        run: |
+          dotnet tool install fable --global
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Cache .NET packages
         uses: actions/cache@v4
@@ -62,18 +64,8 @@ jobs:
         run: ./build.sh build
         shell: bash
 
-      - name: Setup Chrome (installs matching ChromeDriver)
+      - name: Setup Chrome (for WebDriverManager detection)
         uses: browser-actions/setup-chrome@v2
-        with:
-          chrome-version: stable
-          install-chromedriver: true
-
-      - name: Verify Chrome and ChromeDriver installation
-        run: |
-          echo "Chrome location: $(which google-chrome || which chrome || which chromium)"
-          echo "ChromeDriver location: $(which chromedriver)"
-          chromedriver --version
-          google-chrome --version || chrome --version || chromium --version
 
       - name: Setup headless display (Linux)
         run: |
@@ -114,8 +106,6 @@ jobs:
           DISPLAY: ":99"
           CANOPY_HEADLESS: true
           CHROME_ARGS: "--no-sandbox --disable-dev-shm-usage --disable-gpu --headless"
-          USE_SYSTEM_CHROMEDRIVER: "true"
-          PATH: "${{ env.PATH }}"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

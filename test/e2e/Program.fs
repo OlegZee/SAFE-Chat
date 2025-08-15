@@ -10,15 +10,11 @@ open WebDriverManager.DriverConfigs.Impl
 [<EntryPoint>]
 let main args =
 
-    // Only use WebDriverManager if not in CI or if USE_SYSTEM_CHROMEDRIVER is not set
-    let useSystemChromeDriver = System.Environment.GetEnvironmentVariable("USE_SYSTEM_CHROMEDRIVER") = "true"
-    let isCI = System.Environment.GetEnvironmentVariable("CI") = "true"
-    
-    if not useSystemChromeDriver then
-        (DriverManager ()).SetUpDriver(new ChromeConfig(), Helpers.VersionResolveStrategy.MatchingBrowser) |> ignore
+    // Let WebDriverManager handle Chrome and ChromeDriver version matching automatically
+    (DriverManager ()).SetUpDriver(new ChromeConfig(), Helpers.VersionResolveStrategy.MatchingBrowser) |> ignore
 
     // Configure for CI environment - Canopy 2.1.0 uses environment variable for headless
-    if isCI then
+    if System.Environment.GetEnvironmentVariable("CI") = "true" then
         System.Environment.SetEnvironmentVariable("CANOPY_HEADLESS", "true")
 
     start chrome

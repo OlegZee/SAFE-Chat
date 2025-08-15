@@ -4,43 +4,14 @@ open canopy.classic
 open canopy.runner.classic
 open System
 
+open WebDriverManager
+open WebDriverManager.DriverConfigs.Impl
+
 [<EntryPoint>]
 let main args =
 
-    // Optionally skip WebDriverManager and use system ChromeDriver (recommended in CI)
-    let useSystemDriver = (Environment.GetEnvironmentVariable("USE_SYSTEM_CHROMEDRIVER") = "true")
-    if useSystemDriver then
-        printfn "Using system-installed ChromeDriver from PATH (skipping WebDriverManager)."
-        
-        // Set the ChromeDriver path from environment
-        let chromeDriverPath = Environment.GetEnvironmentVariable("CHROMEDRIVER_PATH")
-        if not (String.IsNullOrEmpty(chromeDriverPath)) then
-            configuration.chromeDir <- chromeDriverPath
-            printfn "ChromeDriver directory set to: %s" chromeDriverPath
-    else
-        // Setup ChromeDriver with WebDriverManager for automatic version compatibility
-        printfn "Setting up ChromeDriver with WebDriverManager..."
-        let setupChromeDriver() =
-            try
-                // Use WebDriverManager to set up ChromeDriver
-                let driverManager = WebDriverManager.DriverManager "chrome"
-                let driverPath = driverManager.SetUpDriver("chrome", "LATEST")
-                printfn "ChromeDriver setup complete. Driver path: %s" driverPath
-                
-                // Set the driver path for Canopy
-                configuration.chromeDir <- System.IO.Path.GetDirectoryName(driverPath)
-                printfn "ChromeDriver directory set to: %s" configuration.chromeDir
-                
-            with
-            | ex ->
-                printfn "ChromeDriver setup failed: %s" ex.Message
-                // Fallback to default behavior
-                let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
-                configuration.chromeDir <- executingDir
-                printfn "Using fallback ChromeDriver directory: %s" executingDir
+    (DriverManager ()).SetUpDriver(new ChromeConfig(), Helpers.VersionResolveStrategy.MatchingBrowser) |> ignore
 
-        setupChromeDriver()
-    
     // Configure for CI environment - Canopy 2.1.0 uses environment variable for headless
     if System.Environment.GetEnvironmentVariable("CI") = "true" then
         System.Environment.SetEnvironmentVariable("CANOPY_HEADLESS", "true")

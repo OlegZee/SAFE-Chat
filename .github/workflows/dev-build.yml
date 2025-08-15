@@ -66,7 +66,6 @@ jobs:
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
-          install-chromedriver: true
 
       - name: Setup headless display (Linux)
         run: |

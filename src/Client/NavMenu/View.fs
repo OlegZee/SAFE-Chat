@@ -27,7 +27,31 @@ let menuItemChannelJoin dispatch =
     fun (ch: ChannelInfo) ->
       menuItem (OnClick <| join ch.Id) ch.Name ch.Topic false
 
-let menu (chatData: Model) currentPage dispatch =
+let themeSelector currentTheme themeDispatch =
+    let themeOptions = [
+        ("mass-effect", "Mass Effect")
+        ("cyberpunk", "Cyberpunk")
+        ("forest", "Forest")
+        ("ocean", "Ocean")
+        ("sunset", "Sunset")
+        ("monochrome", "Monochrome")
+    ]
+    
+    div [ ClassName "fs-theme-selector" ]
+        [ h4 [] [ str "Theme" ]
+          select 
+            [ Value currentTheme
+              OnChange (fun ev ->
+                let themeValue = !!ev.target?value
+                themeDispatch themeValue) ]
+            [ for (themeValue, name) in themeOptions ->
+                option 
+                  [ Value themeValue ]
+                  [ str name ]
+            ]
+        ]
+
+let menu (chatData: Connection.Types.Model) currentPage currentTheme themeDispatch dispatch =
     match chatData with
     | NotConnected ->
       [ div [] [str "not connected"] ]
@@ -74,4 +98,5 @@ let menu (chatData: Model) currentPage dispatch =
         for (chid, ch) in channelList |> Map.toSeq do
             if not(channels |> Map.containsKey chid) then
                 yield menuItemChannelJoin dispatch ch
+        yield themeSelector currentTheme themeDispatch
       ]

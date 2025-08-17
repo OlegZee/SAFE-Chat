@@ -1,0 +1,41 @@
+// Ocean Theme - Blues and teals
+:root.theme-ocean {
+  // Avatar colors
+  --color-avatar-bg: #0891B2;
+  
+  // Menu colors
+  --color-menu-fg: #F0F9FF;
+  --color-menu-bg: #0C4A6E;
+  
+  // Text colors
+  --color-text: #1F2937;
+  
+  // Chat colors
+  --color-chat-bg: #F0F9FF;
+  
+  // Message colors
+  --color-msg-bg: #E0F2FE;
+  --color-user-msg-bg: #0369A1;
+  
+  // UI elements
+  --border-radius: 6px;
+  
+  // Typography
+  --font-size-sm: 12px;
+  --font-size: 14px;
+  --font-size-lg: 16px;
+
+  // Ocean specific colors
+  --color-accent: #06B6D4;
+  --color-warning: #F59E0B;
+  --color-success: #10B981;
+  --color-deep: #164E63;
+  
+  // Oceanic backgrounds
+  --background-primary: linear-gradient(135deg, #0C4A6E 0%, #075985 100%);
+  --background-secondary: rgba(12, 74, 110, 0.9);
+  
+  // Water-like effects
+  --glow-primary: 0 0 12px rgba(6, 182, 212, 0.3);
+  --glow-secondary: 0 0 6px rgba(8, 145, 178, 0.2);
+}

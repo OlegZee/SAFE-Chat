@@ -1,0 +1,48 @@
+// Import all theme files
+@use 'mass-effect';
+@use 'cyberpunk';
+@use 'forest';
+@use 'ocean';
+@use 'sunset';
+@use 'monochrome';
+
+// Default theme (Mass Effect)
+:root {
+  // Avatar colors
+  --color-avatar-bg: #1E3A8A;
+  
+  // Menu colors
+  --color-menu-fg: #E0E7FF;
+  --color-menu-bg: #1E1B4B;
+  
+  // Text colors
+  --color-text: #1F2937;
+  
+  // Chat colors
+  --color-chat-bg: #EDE9FE;
+  
+  // Message colors
+  --color-msg-bg: #C7D2FE;
+  --color-user-msg-bg: #3730A3;
+  
+  // UI elements
+  --border-radius: 4px;
+  
+  // Typography
+  --font-size-sm: 12px;
+  --font-size: 14px;
+  --font-size-lg: 16px;
+
+  // Additional Mass Effect themed colors
+  --color-accent: #00D4FF;
+  --color-warning: #FF6B35;
+  --color-success: #10B981;
+  
+  // Enhanced backgrounds
+  --background-primary: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  --background-secondary: rgba(30, 27, 75, 0.9);
+  
+  // Glowing effects
+  --glow-primary: 0 0 10px rgba(0, 212, 255, 0.3);
+  --glow-secondary: 0 0 5px rgba(0, 212, 255, 0.2);
+}

@@ -1,16 +1,19 @@
-$color-avatar-bg: #67688C;
+// Using CSS custom properties for theming
+// These variables will be overridden by theme-specific values
 
-$color-menu-fg: #fff;
-$color-menu-bg: #41426F;
-$color-text: #343434;
+$color-avatar-bg: var(--color-avatar-bg);
 
-$color-chat-bg: #F7F5FB;
+$color-menu-fg: var(--color-menu-fg);
+$color-menu-bg: var(--color-menu-bg);
+$color-text: var(--color-text);
 
-$color-msg-bg: #E1DFE5;
-$color-user-msg-bg: #41426F;
+$color-chat-bg: var(--color-chat-bg);
 
-$border-radius: 2px;
+$color-msg-bg: var(--color-msg-bg);
+$color-user-msg-bg: var(--color-user-msg-bg);
 
-$font-size-sm: 12px;
-$font-size: 14px;
-$font-size-lg: 16px;
+$border-radius: var(--border-radius);
+
+$font-size-sm: var(--font-size-sm);
+$font-size: var(--font-size);
+$font-size-lg: var(--font-size-lg);

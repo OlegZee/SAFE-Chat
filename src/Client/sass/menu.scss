@@ -2,8 +2,9 @@
 @use './variables' as *;
 
 .fs-menu {
+	position: relative;
 	height: 100%;
-	padding: 0;
+	padding: 0 0 80px 0;
 
 	background-color: $color-menu-bg;
 }
@@ -219,7 +220,7 @@
 
 	color: white;
 	border: none;
-	background-color: color.adjust($color-menu-bg, $lightness: 5%);
+	background-color: var(--background-secondary, rgba(65, 66, 111, 0.9));
 
 	line-height: 0;
 
@@ -236,7 +237,7 @@
 
 		&:focus {
 			outline: none;
-			background-color: color.adjust($color-menu-bg, $lightness: 15%);
+			background-color: var(--background-primary, rgba(65, 66, 111, 1));
 		}
 	}
 }
@@ -250,12 +251,53 @@
 	height: 50px;
 	
 	color: white;
-	background-color: color.adjust($color-menu-bg, $lightness: 10%);
+	background-color: var(--background-secondary, rgba(75, 76, 131, 1));
 	border: none;
 	
 	font-size: 18px;
 	
 	&:hover {
-		background-color: color.adjust($color-menu-bg, $lightness: 20%);
+		background-color: var(--background-primary, rgba(85, 86, 151, 1));
+	}
+}
+
+.fs-theme-selector {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	padding: 15px;
+	border-top: 1px solid rgba(#000, .2);
+	background-color: $color-menu-bg;
+	
+	h4 {
+		margin: 0 0 10px 0;
+		color: $color-menu-fg;
+		font-size: $font-size-sm;
+		font-weight: normal;
+		text-transform: uppercase;
+		opacity: .8;
+	}
+	
+	select {
+		width: 100%;
+		padding: 8px 12px;
+		background-color: var(--background-secondary, rgba(75, 76, 131, 1));
+		border: 1px solid var(--color-accent, rgba(105, 106, 171, 1));
+		border-radius: $border-radius;
+		color: $color-menu-fg;
+		font-size: $font-size-sm;
+		cursor: pointer;
+		
+		&:focus {
+			outline: none;
+			border-color: var(--color-accent, rgba(135, 136, 201, 1));
+			background-color: var(--background-primary, rgba(95, 96, 151, 1));
+		}
+		
+		option {
+			background-color: $color-menu-bg;
+			color: $color-menu-fg;
+		}
 	}
 }

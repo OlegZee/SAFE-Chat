@@ -1,0 +1,41 @@
+// Sunset Theme - Warm oranges, reds, and golden colors
+:root.theme-sunset {
+  // Avatar colors
+  --color-avatar-bg: #DC2626;
+  
+  // Menu colors
+  --color-menu-fg: #FEF3C7;
+  --color-menu-bg: #92400E;
+  
+  // Text colors
+  --color-text: #1F2937;
+  
+  // Chat colors
+  --color-chat-bg: #FEF3C7;
+  
+  // Message colors
+  --color-msg-bg: #FED7AA;
+  --color-user-msg-bg: #EA580C;
+  
+  // UI elements
+  --border-radius: 12px;
+  
+  // Typography
+  --font-size-sm: 12px;
+  --font-size: 14px;
+  --font-size-lg: 16px;
+
+  // Sunset specific colors
+  --color-accent: #F59E0B;
+  --color-warning: #EF4444;
+  --color-success: #10B981;
+  --color-gold: #D97706;
+  
+  // Warm sunset backgrounds
+  --background-primary: linear-gradient(135deg, #92400E 0%, #C2410C 100%);
+  --background-secondary: rgba(146, 64, 14, 0.9);
+  
+  // Warm glowing effects
+  --glow-primary: 0 0 15px rgba(245, 158, 11, 0.4);
+  --glow-secondary: 0 0 8px rgba(234, 88, 12, 0.3);
+}

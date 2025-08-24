@@ -1,4 +1,5 @@
 @use 'sass:color';
+@use './themes/index';
 @use './variables' as *;
 @use './chat';
 @use './menu';
@@ -81,7 +82,6 @@ html, body {
 		text-align: center;
 
 		color: white;
-		background-color: $color-avatar-bg;
 
 		font-size: 24px;
 		line-height: 40px;

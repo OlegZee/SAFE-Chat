@@ -178,7 +178,9 @@
 		content: ' ';
 
 		border-radius: 25px 25px 0 0;
-		background-color: #f7f5fb;
+		background-color: $color-chat-bg;
+
+
 	}
 
 	> div:not(.fs-avatar) {
@@ -191,6 +193,7 @@
 			margin: 0;
 			padding: 0;
 
+			color: $color-msg-text;
 			line-height: 20px;
 		}
 
@@ -199,6 +202,7 @@
 			margin: 0;
 			padding: 0;
 
+			color: $color-msg-text;
 			font-size: $font-size-sm;
 			line-height: 20px;
 
@@ -225,7 +229,7 @@
 	}
 
 	&.user {
-		color: white;
+		color: $color-user-msg-text;
 
 		&::before {
 			right: 15px;
@@ -237,6 +241,14 @@
 			padding: 10px 30px 5px 10px;
 
 			background-color: $color-user-msg-bg;
+
+			p {
+				color: $color-user-msg-text;
+			}
+
+			h5 {
+				color: $color-user-msg-text;
+			}
 		}
 
 		.fs-avatar {

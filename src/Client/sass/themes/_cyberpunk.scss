@@ -1,0 +1,45 @@
+// Cyberpunk Theme - Neon and dark aesthetic
+:root.theme-cyberpunk {
+  // Avatar colors
+  --color-avatar-bg: #FF0080;
+  
+  // Menu colors
+  --color-menu-fg: #00FF41;
+  --color-menu-bg: #0A0A0A;
+  --color-menu-selected: #00FF41;
+  
+  // Text colors
+  --color-text: #E5E5E5;
+  
+  // Chat colors
+  --color-chat-bg: #1A1A1A;
+  
+  // Message colors
+  --color-msg-bg: #2D2D2D;
+  --color-msg-text: #E5E5E5;
+  --color-user-msg-bg: #FF0080;
+  --color-user-msg-text: #000000;
+  
+  // UI elements
+  --border-radius: 0px;
+  
+  // Typography
+  --font-size-sm: 12px;
+  --font-size: 14px;
+  --font-size-lg: 16px;
+
+  // Cyberpunk specific colors
+  --color-accent: #00FF41;
+  --color-warning: #FFFF00;
+  --color-success: #00FF41;
+  --color-danger: #FF0080;
+  
+  // Neon backgrounds
+  --background-primary: linear-gradient(135deg, #0A0A0A 0%, #1A0033 100%);
+  --background-secondary: rgba(10, 10, 10, 0.95);
+  
+  // Neon glowing effects
+  --glow-primary: 0 0 20px rgba(0, 255, 65, 0.5);
+  --glow-secondary: 0 0 15px rgba(255, 0, 128, 0.4);
+  --glow-text: 0 0 5px currentColor;
+}

@@ -1,0 +1,44 @@
+// Forest Theme - Natural greens and earth tones
+:root.theme-forest {
+  // Avatar colors
+  --color-avatar-bg: #059669;
+  
+  // Menu colors
+  --color-menu-fg: #F0FDF4;
+  --color-menu-bg: #14532D;
+  --color-menu-selected: #1F2937;
+  
+  // Text colors
+  --color-text: #1F2937;
+  
+  // Chat colors
+  --color-chat-bg: #ECFDF5;
+  
+  // Message colors
+  --color-msg-bg: #D1FAE5;
+  --color-msg-text: #1F2937;
+  --color-user-msg-bg: #047857;
+  --color-user-msg-text: #FFFFFF;
+  
+  // UI elements
+  --border-radius: 8px;
+  
+  // Typography
+  --font-size-sm: 12px;
+  --font-size: 14px;
+  --font-size-lg: 16px;
+
+  // Forest specific colors
+  --color-accent: #10B981;
+  --color-warning: #F59E0B;
+  --color-success: #059669;
+  --color-earth: #92400E;
+  
+  // Natural backgrounds
+  --background-primary: linear-gradient(135deg, #14532D 0%, #166534 100%);
+  --background-secondary: rgba(20, 83, 45, 0.9);
+  
+  // Subtle natural effects
+  --glow-primary: 0 0 8px rgba(16, 185, 129, 0.2);
+  --glow-secondary: 0 0 4px rgba(5, 150, 105, 0.1);
+}

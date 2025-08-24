@@ -6,7 +6,8 @@ open Fable.React.Props
 let root  =
   function
   | None | Some "" ->
-      div [ ClassName "fs-avatar" ] []
+      div [ ClassName "fs-avatar" ] 
+          [ i [ ClassName "mdi mdi-account" ] [] ]
 
   | Some url ->
       div

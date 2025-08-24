@@ -33,7 +33,7 @@ let root model dispatch =
       [ ClassName "container" ]
       [ div
           [ ClassName "col-md-4 fs-menu" ]
-          (NavMenu.View.menu model.chatPage model.currentPage (ApplicationMsg >> ChatDataMsg >> dispatch))
+          (NavMenu.View.menu model.chatPage model.currentPage model.selectedTheme (SetTheme >> dispatch) (ApplicationMsg >> ChatDataMsg >> dispatch))
         div
           [ ClassName "col-xs-12 col-md-8 fs-chat" ]
           (mainAreaView model.currentPage) ]

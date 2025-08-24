@@ -168,7 +168,7 @@
 	}
 
 	&.selected {
-		color: $color-menu-bg;
+		color: $color-menu-selected;
 		background-color: $color-chat-bg;
 
 		&::after {

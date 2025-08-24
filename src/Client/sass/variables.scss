@@ -5,12 +5,15 @@ $color-avatar-bg: var(--color-avatar-bg);
 
 $color-menu-fg: var(--color-menu-fg);
 $color-menu-bg: var(--color-menu-bg);
+$color-menu-selected: var(--color-menu-selected, var(--color-menu-fg));
 $color-text: var(--color-text);
 
 $color-chat-bg: var(--color-chat-bg);
 
 $color-msg-bg: var(--color-msg-bg);
+$color-msg-text: var(--color-msg-text, var(--color-text));
 $color-user-msg-bg: var(--color-user-msg-bg);
+$color-user-msg-text: var(--color-user-msg-text, inherit);
 
 $border-radius: var(--border-radius);
 

@@ -36,6 +36,10 @@ CHAT_DATA/
 node_modules/
 fable_modules/
 
+# IDE and build artifacts
+.claude
+.vscode/settings.json
+
 src/**/*.fs.js
 src/Client/public/
 test/e2e/Chrome

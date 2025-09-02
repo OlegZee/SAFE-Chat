@@ -34,48 +34,65 @@ let handleWebsocketMessages (system: ActorSystem)
 
     // sink for flow that sends messages to websocket
     let sinkBehavior (ctx: Actor<WsMessage>) : WsMessage -> Effect<_> =
+        let (|MessageData|_|) = function
+            | Text text -> 
+                let bytes = Encoding.UTF8.GetBytes text
+                Some (ArraySegment<byte> bytes, WebSocketMessageType.Text, "Text")
+            | Data bytes -> 
+                Some (ArraySegment<byte> bytes, WebSocketMessageType.Binary, "Binary")
+            | Ignore -> None
+
         function
-        | Text text ->
-            let bytes = Encoding.UTF8.GetBytes(text)
-            let segment = ArraySegment<byte>(bytes)
+        | MessageData (segment, msgType, msgTypeStr) ->
             async {
-                do! ws.SendAsync(segment, WebSocketMessageType.Text, true, ct) |> Async.AwaitTask
-            } |> Async.Catch |> Async.Ignore |> Async.Start
-            // TODO process ws exceptions
+                try
+                    do! ws.SendAsync(segment, msgType, true, ct) |> Async.AwaitTask
+                with 
+                | :? WebSocketException as ex ->
+                    logger.LogError("WebSocket send error ({msgType}): {error}", msgTypeStr, ex.Message)
+                | :? OperationCanceledException ->
+                    logger.LogDebug("WebSocket send cancelled ({msgType})", msgTypeStr)
+                | ex ->
+                    logger.LogError("Unexpected error sending WebSocket {msgType}: {error}", msgTypeStr, ex.Message)
+            } |> Async.Start
             ignored ()
-        | Data bytes ->
-            let segment = ArraySegment<byte>(bytes)
-            async {
-                do! ws.SendAsync(segment, WebSocketMessageType.Binary, true, ct) |> Async.AwaitTask
-            } |> Async.Catch |> Async.Ignore |> Async.Start
-            // TODO process ws exceptions
-            ignored ()
-        | Ignore -> ignored ()
+        | _ -> ignored ()
 
     let sinkActor =
-        props <| actorOf2 sinkBehavior |> (spawn system null) |> retype
+        props (actorOf2 sinkBehavior) |> spawn system null |> retype
 
     let sink: Sink<WsMessage,_> = Sink.ActorRef(untyped sinkActor, PoisonPill.Instance, fun _ -> PoisonPill.Instance)
     do materialize materializer inputSource sink
 
     let rec receiveLoop () = async {
         if not ct.IsCancellationRequested && ws.State = WebSocketState.Open then
-            let! result = ws.ReceiveAsync(ArraySegment<byte>(buffer), ct) |> Async.AwaitTask
-            
-            match result.MessageType with
-            | WebSocketMessageType.Text -> 
-                let str = Encoding.UTF8.GetString(buffer, 0, result.Count)
-                sourceActor <! Text str
-                return! receiveLoop()
-            | WebSocketMessageType.Binary ->
-                let bytes = Array.sub buffer 0 result.Count
-                sourceActor <! Data bytes
-                return! receiveLoop()
-            | WebSocketMessageType.Close ->
-                logger.LogDebug("Received WebSocket Close, terminating actor")
+            try
+                let! result = ws.ReceiveAsync(ArraySegment<byte>(buffer), ct) |> Async.AwaitTask
+                
+                match result.MessageType with
+                | WebSocketMessageType.Text -> 
+                    let str = Encoding.UTF8.GetString(buffer, 0, result.Count)
+                    sourceActor <! Text str
+                    return! receiveLoop()
+                | WebSocketMessageType.Binary ->
+                    let bytes = Array.sub buffer 0 result.Count
+                    sourceActor <! Data bytes
+                    return! receiveLoop()
+                | WebSocketMessageType.Close ->
+                    logger.LogDebug("Received WebSocket Close, terminating actor")
+                    retype sourceActor <! PoisonPill.Instance
+                    do! ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", ct) |> Async.AwaitTask
+                | _ -> return! receiveLoop()
+            with
+            | :? WebSocketException as ex ->
+                logger.LogError("WebSocket receive error: {error}", ex.Message)
                 retype sourceActor <! PoisonPill.Instance
-                do! ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", ct) |> Async.AwaitTask
-            | _ -> return! receiveLoop()
+            | :? OperationCanceledException ->
+                logger.LogDebug("WebSocket receive cancelled")
+                retype sourceActor <! PoisonPill.Instance
+            | ex ->
+                logger.LogError("Unexpected error in WebSocket receive loop: {error}", ex.Message)
+                retype sourceActor <! PoisonPill.Instance
     }
     
     receiveLoop()

@@ -34,27 +34,18 @@ open UserSessionFlow
 let private (</>) a b = Path.Combine(a, b)
 
 module Secrets =
-    let CookieSecretFile = "CHAT_DATA" </> "COOKIE_SECRET"
     let OAuthConfigFile = "CHAT_DATA" </> "oauth.config"
-
-    let readCookieSecret () =
-        printfn "Reading configuration data from %s" System.Environment.CurrentDirectory
-        if not (File.Exists CookieSecretFile) then
-            let secret = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)
-            do (Path.GetDirectoryName CookieSecretFile) |> Directory.CreateDirectory |> ignore
-            File.WriteAllBytes (CookieSecretFile, secret)
-        File.ReadAllBytes(CookieSecretFile)
 
     let oauthConfigData =
         if not (File.Exists OAuthConfigFile) then
-            do (Path.GetDirectoryName OAuthConfigFile) |> Directory.CreateDirectory |> ignore
+            do Path.GetDirectoryName OAuthConfigFile |> Directory.CreateDirectory |> ignore
             File.WriteAllText (OAuthConfigFile, """{
       "google": {
       	"client_id": "<type in client id string>",
       	"client_secret": "<type in client secret>"
       	}
 }"""    )
-        ConfigurationBuilder().SetBasePath(System.Environment.CurrentDirectory).AddJsonFile(OAuthConfigFile).Build()
+        ConfigurationBuilder().SetBasePath(Environment.CurrentDirectory).AddJsonFile(OAuthConfigFile).Build()
 
 type AppState = {
     ActorSystem: ActorSystem option
@@ -69,8 +60,12 @@ let mutable private appServerState: AppState = { ActorSystem = None; UserStore =
 // ---------------------------------
 
 let startChatServer () = async {
+    // Create logger factory for initialization
+    let loggerFactory = LoggerFactory.Create (fun builder -> builder.AddConsole() |> ignore)
+    let logger = loggerFactory.CreateLogger("app-init")
+    
     try
-        printfn "Initializing actor system with in-memory persistence..."
+        logger.LogInformation "Initializing actor system with in-memory persistence..."
         
         let configStr = """akka {  
     stdout-loglevel = WARNING
@@ -104,50 +99,50 @@ let startChatServer () = async {
         }
     }
 }"""
-        let config = ConfigurationFactory.ParseString(configStr)
+        let config = ConfigurationFactory.ParseString configStr
 
-        printfn "Creating actor system..."
+        logger.LogInformation "Creating actor system..."
         let actorSystem = ActorSystem.Create("chatapp", config)
         
-        printfn "Creating user store..."
+        logger.LogInformation "Creating user store..."
         let userStore = UserStore.UserStore actorSystem
 
         // Wait for actor system to initialize (shorter wait for in-memory)
-        printfn "Waiting for actor system initialization..."
+        logger.LogInformation "Waiting for actor system initialization..."
         do! Async.Sleep(2000)
 
-        printfn "Starting chat server..."
+        logger.LogInformation("Starting chat server...")
         let chatServer = ChatServer.startServer actorSystem
         
         // Give the chat server time to start (shorter wait for in-memory)
-        printfn "Waiting for chat server to start..."
+        logger.LogInformation("Waiting for chat server to start...")
         do! Async.Sleep(1000)
         
         // Try to initialize channels with retry logic
         let rec tryInitializeChannels retryCount =
             async {
                 try
-                    printfn "Creating diagnostic channel (attempt %d)..." (6 - retryCount)
-                    do! Diag.createDiagChannel userStore.GetUser actorSystem chatServer (UserStore.UserIds.echo, "Demo", "Channel for testing purposes. Notice the bots are always ready to keep conversation.")
+                    logger.LogInformation("Creating diagnostic channel (attempt {attempt})...", 6 - retryCount)
+                    do! Diag.createDiagChannel logger userStore.GetUser actorSystem chatServer (UserStore.UserIds.echo, "Demo", "Channel for testing purposes. Notice the bots are always ready to keep conversation.")
 
-                    printfn "Creating default channels (attempt %d)..." (6 - retryCount)
+                    logger.LogInformation("Creating default channels (attempt {attempt})...", 6 - retryCount)
                     do! chatServer |> getOrCreateChannel "Test" "empty channel" (GroupChatChannel { autoRemove = false }) |> Async.Ignore
                     do! chatServer |> getOrCreateChannel "About" "interactive help" (OtherChannel <| AboutChannelActor.props UserStore.UserIds.system) |> Async.Ignore
                     
-                    printfn "Channels created successfully."
+                    logger.LogInformation "Channels created successfully."
                 with
                 | ex when retryCount > 0 ->
-                    printfn "Channel creation failed (attempt %d): %s. Retrying..." (6 - retryCount) ex.Message
-                    do! Async.Sleep(3000)
+                    logger.LogWarning("Channel creation failed (attempt {attempt}): {error}. Retrying...", 6 - retryCount, ex.Message)
+                    do! Async.Sleep 3000
                     return! tryInitializeChannels (retryCount - 1)
                 | ex ->
-                    printfn "Channel creation failed after all retries: %s" ex.Message
+                    logger.LogError("Channel creation failed after all retries: {error}", ex.Message)
                     return failwith (sprintf "Failed to create channels: %s" ex.Message)
             }
         
         do! tryInitializeChannels 5
 
-        printfn "Chat server initialization completed successfully."
+        logger.LogInformation "Chat server initialization completed successfully."
         
         appServerState <- { 
             ActorSystem = Some actorSystem
@@ -157,8 +152,8 @@ let startChatServer () = async {
         return ()
     with
     | ex -> 
-        printfn "Error during chat server initialization: %s" ex.Message
-        printfn "Stack trace: %s" ex.StackTrace
+        logger.LogError("Error during chat server initialization: {error}", ex.Message)
+        logger.LogError("Stack trace: {stackTrace}", ex.StackTrace)
         return failwith (sprintf "Failed to initialize chat server: %s" ex.Message)
 }
 
@@ -171,8 +166,8 @@ let getUserFromSession (ctx: HttpContext) = async {
     | Some userStore ->
         let userId = ctx.Session.GetString("userid")
         if not (String.IsNullOrEmpty userId) then
-            let! result = userStore.GetUser (UserId userId)
-            return result |> Option.map (fun user -> RegisteredUser (UserId userId, user))
+            let! result = userStore.GetUser(UserId userId)
+            return result |> Option.map(fun user -> RegisteredUser(UserId userId, user))
         else
             return None
     | None -> return None
@@ -234,7 +229,7 @@ let indexHandler : HttpFunc -> HttpFunc =
         let! userOpt = getUserFromSession ctx
         match userOpt with
         | Some _ -> 
-            let clientPublicPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "..", "..", "..", "..", "Client", "public", "index.html")
+            let clientPublicPath = Path.Combine(Path.GetDirectoryName(Reflection.Assembly.GetExecutingAssembly().Location), "..", "..", "..", "..", "Client", "public", "index.html")
             let indexPath = Path.GetFullPath clientPublicPath
             if File.Exists indexPath then
                 return! htmlFile indexPath next ctx
@@ -259,7 +254,7 @@ let logonPostHandler : HttpFunc -> HttpFunc =
         match appServerState.UserStore with
         | Some userStore ->
             let! body = ctx.ReadBodyFromRequestAsync()
-            let nick = body.Substring(5) |> WebUtility.UrlDecode |> WebUtility.HtmlDecode
+            let nick = body.Substring 5 |> WebUtility.UrlDecode |> WebUtility.HtmlDecode
             let user = {ChatUser.makeNew (Anonymous nick) nick with imageUrl = makeUserImageUrl "monsterid" nick}
             let! registerResult = userStore.Register user
             match registerResult with
@@ -267,7 +262,7 @@ let logonPostHandler : HttpFunc -> HttpFunc =
                 ctx.Session.SetString("userid", userid)
                 return! redirectTo false "/" next ctx
             | Result.Error message ->
-                return! text (sprintf "Register failed because of `%s`" message) next ctx
+                return! text(sprintf "Register failed because of `%s`" message) next ctx
         | None ->
             return! text "Server not initialized" next ctx
     }
@@ -292,10 +287,10 @@ let oauthCallbackHandler (provider: string) : HttpFunc -> HttpFunc =
                 let! result = ctx.AuthenticateAsync(provider)
                 if result.Succeeded then
                     let claims = result.Principal.Claims
-                    let name = claims |> Seq.tryFind (fun c -> c.Type = ClaimTypes.Name) |> Option.map (fun c -> c.Value) |> Option.defaultValue "Unknown"
-                    let id = claims |> Seq.tryFind (fun c -> c.Type = ClaimTypes.NameIdentifier) |> Option.map (fun c -> c.Value) |> Option.defaultValue (Guid.NewGuid().ToString())
+                    let name = claims |> Seq.tryFind(fun c -> c.Type = ClaimTypes.Name) |> Option.map(fun c -> c.Value) |> Option.defaultValue "Unknown"
+                    let id = claims |> Seq.tryFind(fun c -> c.Type = ClaimTypes.NameIdentifier) |> Option.map(fun c -> c.Value) |> Option.defaultValue(Guid.NewGuid().ToString())
                     
-                    let imageUrl = getUserImageUrl claims |> Option.orElseWith (fun () -> makeUserImageUrl "wavatar" name)
+                    let imageUrl = getUserImageUrl claims |> Option.orElseWith(fun () -> makeUserImageUrl "wavatar" name)
                     let identity = Person {oauthId = Some id; email = None; name = None}
                     let user = {ChatUser.makeNew identity name with imageUrl = imageUrl}
                     
@@ -305,11 +300,11 @@ let oauthCallbackHandler (provider: string) : HttpFunc -> HttpFunc =
                         ctx.Session.SetString("userid", userid)
                         return! redirectTo false "/" next ctx
                     | Result.Error message ->
-                        return! text (sprintf "Register failed because of `%s`" message) next ctx
+                        return! text(sprintf "Register failed because of `%s`" message) next ctx
                 else
                     return! text "OAuth authentication failed" next ctx
             with
-            | ex -> return! text (sprintf "OAuth error: %s" ex.Message) next ctx
+            | ex -> return! text(sprintf "OAuth error: %s" ex.Message) next ctx
         | None ->
             return! text "Server not initialized" next ctx
     }
@@ -339,6 +334,9 @@ let webApp : HttpFunc -> HttpFunc =
 // ---------------------------------
 
 let configureServices (services: IServiceCollection) =
+    // Create temporary logger for service configuration
+    let loggerFactory = LoggerFactory.Create(fun builder -> builder.AddConsole() |> ignore)
+    let logger = loggerFactory.CreateLogger("service-config")
     // Add session support
     services.AddDistributedMemoryCache() |> ignore
     services.AddSession(fun options ->
@@ -365,7 +363,7 @@ let configureServices (services: IServiceCollection) =
                     options.CallbackPath <- "/oauth/callback/google"
                 ) |> ignore
     with
-    | _ -> printfn "OAuth configuration not found or invalid"
+    | _ -> logger.LogWarning("OAuth configuration not found or invalid")
     
     services.AddGiraffe() |> ignore
 

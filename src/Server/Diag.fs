@@ -2,6 +2,7 @@ module Diag
 
 open Akka.Actor
 open Akkling
+open Microsoft.Extensions.Logging
 
 open ChatUser
 open ChatTypes
@@ -43,7 +44,7 @@ let createEchoActor (getUser: GetUser) (system: ActorSystem) (botUserId: UserId)
     in
     spawn system "echobot" <| props(handler)
 
-let createDiagChannel (getUser: GetUser) (system: ActorSystem) (server: IActorRef<_>) (echoUserId, channelName, topic) =
+let createDiagChannel (logger: ILogger) (getUser: GetUser) (system: ActorSystem) (server: IActorRef<_>) (echoUserId, channelName, topic) =
     async {
         let bot = createEchoActor getUser system echoUserId
         let chanActorProps = GroupChatChannelActor.props None
@@ -54,8 +55,8 @@ let createDiagChannel (getUser: GetUser) (system: ActorSystem) (server: IActorRe
             let! channel = server |> getChannel (fun chan -> chan.cid = chanId)
             match channel with
             | Ok chan -> chan.channelActor <! ChannelCommand (NewParticipant (echoUserId, bot))
-            | Error _ ->
-                () // FIXME log error
-        | Error _ ->
-            () // FIXME log error
+            | Error err ->
+                logger.LogError("Failed to get channel {chanId}: {error}", chanId, err)
+        | Error err ->
+            logger.LogError("Failed to create/get channel {channelName}: {error}", channelName, err)
     }

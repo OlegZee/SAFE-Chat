@@ -43,3 +43,4 @@ fable_modules/
 src/**/*.fs.js
 src/Client/public/
 test/e2e/Chrome
+.playwright-mcp
